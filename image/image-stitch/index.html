@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片拼图工具 - 网格/长图拼接</title>
+    <style>
+        :root{--bg:#f5f7fa;--card-bg:#fff;--text:#1e293b;--text-secondary:#475569;--text-muted:#94a3b8;--border:#cbd5e1;--drop-bg:#f8fafc;--drop-hover:#eef2ff;--file-bg:#f1f5f9;--param-bg:#f8fafc;--input-bg:#fff;--log-bg:#0f172a;--log-text:#e2e8f0;--shadow:0 10px 25px -5px rgba(0,0,0,0.05)}
+        [data-theme="dark"]{--bg:#1a1d23;--card-bg:#21252b;--text:#d4d4d4;--text-secondary:#a0a0a0;--text-muted:#6a6a6a;--border:#3a3e47;--drop-bg:#282c34;--drop-hover:#2c313a;--file-bg:#282c34;--param-bg:#282c34;--input-bg:#282c34;--shadow:0 10px 25px -5px rgba(0,0,0,0.3)}
+        *{box-sizing:border-box}
+        body{font-family:'Segoe UI','微软雅黑',Roboto,sans-serif;background:var(--bg);margin:0;padding:20px;color:var(--text);transition:background .3s,color .3s}
+        .container{max-width:1000px;margin:0 auto;background:var(--card-bg);border-radius:24px;box-shadow:var(--shadow);padding:24px 28px 32px;transition:background .3s,box-shadow .3s}
+        .header-row{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px}
+        h1{font-size:1.8rem;font-weight:600;margin:0 0 8px 0;background:linear-gradient(135deg,#2563eb,#7c3aed);-webkit-background-clip:text;background-clip:text;color:transparent}
+        .sub{color:var(--text-secondary);border-left:4px solid #94a3b8;padding-left:16px;margin:12px 0 20px 0;font-size:0.9rem}
+        .theme-btn{background:var(--drop-bg);border:1px solid var(--border);color:var(--text);width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:20px;transition:all .2s;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+        .theme-btn:hover{background:var(--drop-hover);transform:rotate(30deg)}
+        .dropzone{background:var(--drop-bg);border:2px dashed var(--border);border-radius:20px;padding:32px 20px;text-align:center;cursor:pointer;transition:all 0.2s;margin-bottom:24px;color:var(--text)}
+        .dropzone.drag-over{background:var(--drop-hover);border-color:#3b82f6}
+        .paste-hint{background:#e6f7ff;border:1px solid #91d5ff;border-radius:12px;padding:10px 16px;text-align:center;font-size:0.85rem;margin:12px 0;cursor:pointer;transition:all 0.2s;position:relative}
+        .paste-hint:hover{background:#bae7ff;border-color:#40a9ff}
+        .paste-hint.active{background:#52c41a20;border-color:#52c41a;box-shadow:0 0 0 2px #52c41a40}
+        .file-list{background:var(--file-bg);border-radius:16px;padding:12px 16px;max-height:200px;overflow-y:auto;font-size:0.85rem;font-family:monospace;margin:16px 0;transition:background .3s}
+        .file-item{display:flex;align-items:center;padding:6px 8px;border-radius:4px;cursor:grab;transition:all .15s;margin:2px 0}
+        .file-item:hover{background:var(--drop-hover)}
+        .file-item.dragging{opacity:0.4}
+        .file-item.drag-over{border-top:2px solid #3b82f6}
+        .file-item .drag-handle{color:var(--text-muted);margin-right:8px;cursor:grab;font-size:14px;flex-shrink:0}
+        .file-item .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .file-item .btn-remove{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:2px 6px;border-radius:4px;margin-left:4px;flex-shrink:0}
+        .file-item .btn-remove:hover{color:#e53935;background:#ffebee}
+        .mode-selector{background:var(--param-bg);padding:12px 20px;border-radius:20px;margin:20px 0;display:flex;gap:24px;align-items:center;flex-wrap:wrap;transition:background .3s}
+        .mode-selector label{display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:500;color:var(--text)}
+        .param-grid{display:flex;flex-wrap:wrap;gap:20px;background:var(--param-bg);padding:18px 20px;border-radius:20px;margin:20px 0;transition:background .3s}
+        .param-item{flex:1;min-width:160px}
+        .param-item label{display:block;font-weight:500;margin-bottom:6px;font-size:0.85rem;color:var(--text)}
+        .param-item input{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:12px;font-size:0.9rem;background:var(--input-bg);color:var(--text)}
+        .color-preview{display:inline-block;width:32px;height:32px;border-radius:12px;border:1px solid var(--border);vertical-align:middle;margin-left:10px}
+        button.primary{background:#3b82f6;border:none;color:white;padding:10px 24px;border-radius:40px;font-weight:600;font-size:1rem;cursor:pointer;transition:0.1s;box-shadow:0 1px 2px rgba(0,0,0,0.05)}
+        button.primary:hover{background:#2563eb}
+        button.primary:disabled{background:#94a3b8;cursor:not-allowed}
+        .status{margin:16px 0;font-size:0.9rem;color:var(--text-secondary);display:flex;align-items:center;gap:12px}
+        progress{flex:1;height:8px;border-radius:10px;overflow:hidden}
+        .log{background:var(--log-bg);color:var(--log-text);padding:12px 16px;border-radius:16px;font-family:'JetBrains Mono',monospace;font-size:0.8rem;max-height:200px;overflow-y:auto;margin-top:20px}
+        .btn-secondary{background:#475569;border:none;color:white;padding:10px 24px;border-radius:40px;font-weight:600;font-size:1rem;cursor:pointer;transition:0.1s;box-shadow:0 1px 2px rgba(0,0,0,0.05);margin-left:12px}
+        .btn-secondary:hover{background:#334155}
+        .footer{text-align:center;margin-top:24px;font-size:0.75rem;color:var(--text-muted)}
+        kbd{background-color:#f9f9f9;border:1px solid #ccc;border-radius:3px;box-shadow:0 1px 0 rgba(0,0,0,0.2);color:#333;display:inline-block;font-size:0.75rem;font-weight:bold;padding:2px 6px;margin:0 2px}
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header-row">
+        <div>
+            <h1>🖼️ 图片拼图 · 网格/长图拼接</h1>
+            <div class="sub">留空=原图宽度 / 填值=统一宽度 / 可自定义背景 / 支持透明PNG / 图片间带间隙 / 四周留白</div>
+        </div>
+        <button class="theme-btn" id="themeBtn" title="切换暗色模式">🌙</button>
+    </div>
+
+    <div id="dropzone" class="dropzone">
+        <div class="icon">📁📸</div>
+        <div>点击或拖拽图片到此区域（可多选，多次添加会累积）</div>
+        <div style="font-size: 0.75rem; margin-top: 8px;color:var(--text-muted)">支持 JPG, PNG, WebP, BMP, GIF（透明PNG会合成背景色）</div>
+    </div>
+
+    <div id="pasteHint" class="paste-hint">
+        <div>📋 <strong>点击这里激活粘贴模式</strong> <span id="exitPasteBtn" class="exit-paste">✕ 退出</span></div>
+        <div class="status-text" id="pasteStatus">💡 点击后按 Ctrl+V 粘贴截图，激活后一直有效直到退出</div>
+    </div>
+
+    <input type="file" id="fileInput" multiple accept="image/jpeg,image/png,image/webp,image/bmp,image/gif" style="display: none;">
+
+    <div id="fileList" class="file-list" style="display: none;"></div>
+
+    <div class="mode-selector">
+        <label><input type="radio" name="mode" value="grid" checked> 🧩 网格拼图<span class="mode-hint">（自动排成接近正方形）</span></label>
+        <label><input type="radio" name="mode" value="vertical"> 📜 长拼图<span class="mode-hint">（垂直拼接成一长条）</span></label>
+    </div>
+
+    <div class="param-grid">
+        <div class="param-item">
+            <label>📏 单张图片宽度 (px)</label>
+            <input type="number" id="imgWidth" value="" placeholder="留空=原图宽度" step="10" min="100">
+            <div style="font-size:0.7rem;color:var(--text-muted);margin-top:3px">💡 留空则使用每张图片的原始宽度</div>
+        </div>
+        <div class="param-item">
+            <label>🎨 背景色</label>
+            <div>
+                <input type="text" id="bgColor" value="#FFFFFF" style="width: calc(100% - 48px); display: inline-block;">
+                <div id="colorPreview" class="color-preview" style="background: #FFFFFF;"></div>
+            </div>
+        </div>
+        <div class="param-item"><label>↔️ 图片间隙 (px)</label><input type="number" id="gap" value="10" min="0" step="2"></div>
+        <div class="param-item"><label>🖼️ 四周留白 (px)</label><input type="number" id="margin" value="20" min="0" step="5"></div>
+    </div>
+
+    <div style="display:flex;gap:24px;margin:0 0 16px 0;flex-wrap:wrap;padding:0 4px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.85rem;color:var(--text);user-select:none">
+            <input type="checkbox" id="showFilename"> 🏷️ 显示文件名
+        </label>
+    </div>
+
+    <div class="status"><span>⚡ 状态：</span><span id="statusMsg">就绪</span><progress id="progressBar" value="0" max="100" style="display: none;"></progress></div>
+
+    <div style="display: flex; gap: 12px; justify-content: center;">
+        <button id="processBtn" class="primary" disabled>🧩 开始拼接</button>
+        <button id="resetBtn" class="btn-secondary">🗑️ 清空图片</button>
+    </div>
+
+    <div class="log" id="logArea">📋 日志：<br>• 等待添加图片...<br>• 💡 提示：点击上方蓝色区域激活粘贴模式，然后按 Ctrl+V 粘贴截图</div>
+    <div class="footer">💡 图片将在浏览器中处理，不会上传服务器。拖拽文件列表的 ⋮⋮ 可调整顺序。</div>
+</div>
+
+<script>
+(function(){
+    const dropzone=document.getElementById('dropzone');
+    const fileInput=document.getElementById('fileInput');
+    const fileListDiv=document.getElementById('fileList');
+    const imgWidthInput=document.getElementById('imgWidth');
+    const showFilename=document.getElementById('showFilename');
+    const bgColorInput=document.getElementById('bgColor');
+    const colorPreview=document.getElementById('colorPreview');
+    const gapInput=document.getElementById('gap');
+    const marginInput=document.getElementById('margin');
+    const processBtn=document.getElementById('processBtn');
+    const resetBtn=document.getElementById('resetBtn');
+    const statusSpan=document.getElementById('statusMsg');
+    const progressBar=document.getElementById('progressBar');
+    const logArea=document.getElementById('logArea');
+    const modeRadios=document.querySelectorAll('input[name="mode"]');
+    const pasteHint=document.getElementById('pasteHint');
+    const pasteStatus=document.getElementById('pasteStatus');
+    const exitPasteBtn=document.getElementById('exitPasteBtn');
+    const themeBtn=document.getElementById('themeBtn');
+
+    let selectedFiles=[],processing=false,pasteModeActive=false,permissionGranted=false;
+
+    // ====== 暗色模式 ======
+    function initTheme(){
+        const saved=localStorage.getItem('imgStitch_theme');
+        const prefersDark=window.matchMedia('(prefers-color-scheme:dark)').matches;
+        applyTheme(saved==='dark'||(!saved&&prefersDark));
+    }
+    function applyTheme(isDark){
+        document.documentElement.setAttribute('data-theme',isDark?'dark':'light');
+        themeBtn.textContent=isDark?'☀️':'🌙';
+        localStorage.setItem('imgStitch_theme',isDark?'dark':'light');
+    }
+    themeBtn.addEventListener('click',()=>applyTheme(document.documentElement.getAttribute('data-theme')!=='dark'));
+    window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',e=>{if(!localStorage.getItem('imgStitch_theme'))applyTheme(e.matches)});
+
+    // ====== 设置记忆 ======
+    function saveSettings(){
+        const s={imgWidth:imgWidthInput.value,bgColor:bgColorInput.value,gap:gapInput.value,margin:marginInput.value,mode:getCurrentMode(),showFilename:showFilename.checked};
+        localStorage.setItem('imgStitch_settings',JSON.stringify(s));
+    }
+    function loadSettings(){
+        try{
+            const s=JSON.parse(localStorage.getItem('imgStitch_settings'));
+            if(s){
+                if(s.imgWidth!==undefined)imgWidthInput.value=s.imgWidth;
+                if(s.bgColor){bgColorInput.value=s.bgColor;colorPreview.style.background=s.bgColor;}
+                if(s.gap)gapInput.value=s.gap;
+                if(s.margin)marginInput.value=s.margin;
+                if(s.mode){modeRadios.forEach(r=>{if(r.value===s.mode)r.checked=true})}
+                if(s.showFilename!==undefined)showFilename.checked=s.showFilename;
+            }
+        }catch(e){}
+    }
+    [imgWidthInput,bgColorInput,gapInput,marginInput].forEach(el=>el.addEventListener('input',saveSettings));
+    modeRadios.forEach(r=>r.addEventListener('change',saveSettings));
+    showFilename.addEventListener('change',saveSettings);
+
+    function addLog(msg,isError=false){
+        const prefix=isError?'❌':'✓';
+        const time=new Date().toLocaleTimeString();
+        logArea.innerHTML+=`<div style="color: ${isError?'#f87171':'#94a3b8'};">[${time}] ${prefix} ${msg}</div>`;
+        logArea.scrollTop=logArea.scrollHeight;
+    }
+
+    function getCurrentMode(){
+        for(let radio of modeRadios){if(radio.checked)return radio.value}
+        return 'grid';
+    }
+
+    // ====== 文件列表 + 拖拽排序 ======
+    function updateFileListUI(){
+        if(selectedFiles.length===0){fileListDiv.style.display='none';processBtn.disabled=true;statusSpan.innerText='就绪';return}
+        fileListDiv.style.display='block';
+        fileListDiv.innerHTML='';
+        selectedFiles.forEach((f,idx)=>{
+            const item=document.createElement('div');
+            item.className='file-item';
+            item.draggable=true;
+            item.dataset.index=idx;
+            const name=f.name||`粘贴图片_${idx+1}.png`;
+            const displayName=name.length>50?name.substring(0,47)+'...':name;
+            item.innerHTML=`<span class="drag-handle">⋮⋮</span><span class="name">${idx+1}. ${displayName}</span><button class="btn-remove" data-index="${idx}">✕</button>`;
+            item.addEventListener('dragstart',e=>{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',idx);item.classList.add('dragging')});
+            item.addEventListener('dragend',()=>{item.classList.remove('dragging');fileListDiv.querySelectorAll('.drag-over').forEach(el=>el.classList.remove('drag-over'))});
+            item.addEventListener('dragover',e=>{e.preventDefault();e.dataTransfer.dropEffect='move';item.classList.add('drag-over')});
+            item.addEventListener('dragleave',()=>item.classList.remove('drag-over'));
+            item.addEventListener('drop',e=>{
+                e.preventDefault();item.classList.remove('drag-over');
+                const from=parseInt(e.dataTransfer.getData('text/plain'));
+                const to=idx;
+                if(from!==to){const[m]=selectedFiles.splice(from,1);selectedFiles.splice(to,0,m);updateFileListUI();addLog('↕ 已调整排序')}
+            });
+            item.querySelector('.btn-remove').addEventListener('click',e=>{e.stopPropagation();selectedFiles.splice(idx,1);updateFileListUI();addLog('✖ 已移除')});
+            fileListDiv.appendChild(item);
+        });
+        processBtn.disabled=false;
+    }
+
+    function addFiles(files){
+        if(!files||files.length===0)return;
+        const imageFiles=Array.from(files).filter(f=>f.type.startsWith('image/'));
+        if(imageFiles.length===0){addLog('未包含有效图片文件',true);return}
+        selectedFiles.push(...imageFiles);
+        updateFileListUI();
+        addLog(`添加 ${imageFiles.length} 张图片，当前总计 ${selectedFiles.length} 张`);
+    }
+
+    async function addFromClipboard(){
+        try{
+            const clipboardItems=await navigator.clipboard.read();
+            const imageFiles=[];
+            for(const item of clipboardItems){
+                const imageTypes=item.types.filter(type=>type.startsWith('image/'));
+                for(const type of imageTypes){
+                    const blob=await item.getType(type);
+                    const fileName=`粘贴图片_${Date.now()}_${Math.random().toString(36).substr(2,6)}.png`;
+                    imageFiles.push(new File([blob],fileName,{type}));
+                }
+            }
+            if(imageFiles.length===0){addLog('剪贴板中没有找到图片数据',true);return false}
+            selectedFiles.push(...imageFiles);
+            updateFileListUI();
+            addLog(`从剪贴板添加 ${imageFiles.length} 张图片，当前总计 ${selectedFiles.length} 张`);
+            return true;
+        }catch(err){
+            addLog(`粘贴失败: ${err.message}`,true);
+            return false;
+        }
+    }
+
+    async function requestClipboardPermission(){
+        if(permissionGranted)return true;
+        try{await navigator.clipboard.read();permissionGranted=true;addLog('剪贴板权限已获取');return true}
+        catch(err){addLog('需要允许剪贴板权限',true);return false}
+    }
+
+    async function activatePasteMode(){
+        if(!permissionGranted){const granted=await requestClipboardPermission();if(!granted){pasteStatus.innerHTML='⚠️ 需要权限';return}}
+        pasteModeActive=true;pasteHint.classList.add('active');
+        pasteStatus.innerHTML='✅ 粘贴模式已激活，现在按 Ctrl+V 即可粘贴图片';
+        addLog('粘贴模式已激活');
+    }
+    function deactivatePasteMode(){pasteModeActive=false;pasteHint.classList.remove('active');pasteStatus.innerHTML='💡 点击后按 Ctrl+V 粘贴截图';addLog('粘贴模式已退出')}
+    async function onPaste(e){if(!pasteModeActive)return;e.preventDefault();addLog('检测到粘贴操作…');await addFromClipboard()}
+
+    function resetFiles(){selectedFiles=[];updateFileListUI();addLog('已清空所有图片');fileInput.value=''}
+
+    function updateColorPreview(){colorPreview.style.background=bgColorInput.value.trim()}
+    bgColorInput.addEventListener('input',()=>{updateColorPreview();saveSettings()});
+    updateColorPreview();
+
+    function getParams(){
+        let width=parseInt(imgWidthInput.value,10)||null;
+        let gap=parseInt(gapInput.value,10)||10;
+        let margin=parseInt(marginInput.value,10)||20;
+        let bgColor=bgColorInput.value.trim()||'#FFFFFF';
+        let drawFilename=showFilename.checked;
+        return{width,gap,margin,bgColor,drawFilename};
+    }
+
+    // ====== 文件名标签自适应 ======
+    function getTextColorForBg(bgColor){
+        const hex=bgColor.replace('#','');
+        const r=parseInt(hex.substring(0,2),16)||255;
+        const g=parseInt(hex.substring(2,4),16)||255;
+        const b=parseInt(hex.substring(4,6),16)||255;
+        const luminance=0.299*r+0.587*g+0.114*b;
+        return luminance>128?'#1e293b':'#FFFFFF';
+    }
+
+    function wrapText(ctx,text,maxWidth){
+        const lines=[];
+        let line='';
+        for(let i=0;i<text.length;i++){
+            const ch=text[i];
+            const test=line+ch;
+            if(ctx.measureText(test).width>maxWidth&&line.length>0){lines.push(line);line=ch}
+            else{line=test}
+        }
+        if(line)lines.push(line);
+        return lines.length?lines:[text];
+    }
+
+    function calcFilenameHeight(ctx,imgWidth,fileName){
+        const fontSize=Math.max(12,Math.round(imgWidth/40));
+        ctx.font=`${fontSize}px "Microsoft YaHei","微软雅黑",sans-serif`;
+        const lines=wrapText(ctx,fileName,imgWidth-12);
+        const lineH=fontSize*1.5;
+        return{lines,fontSize,lineH,totalH:lines.length*lineH+12};
+    }
+
+    function drawFilenameBelowImage(ctx,imgWidth,imgHeight,fileName,bgColor){
+        const info=calcFilenameHeight(ctx,imgWidth,fileName);
+        const textColor=getTextColorForBg(bgColor);
+        const labelBg=textColor==='#FFFFFF'?'rgba(0,0,0,0.12)':'rgba(255,255,255,0.12)';
+        const labelY=imgHeight;
+        const labelH=info.totalH;
+        ctx.fillStyle=labelBg;
+        ctx.fillRect(0,labelY,imgWidth,labelH);
+        ctx.strokeStyle=textColor==='#FFFFFF'?'rgba(255,255,255,0.2)':'rgba(0,0,0,0.1)';
+        ctx.lineWidth=1;
+        ctx.beginPath();ctx.moveTo(0,labelY);ctx.lineTo(imgWidth,labelY);ctx.stroke();
+        ctx.fillStyle=textColor;
+        ctx.font=`${info.fontSize}px "Microsoft YaHei","微软雅黑",sans-serif`;
+        ctx.textAlign='center';
+        ctx.textBaseline='top';
+        for(let i=0;i<info.lines.length;i++){
+            ctx.fillText(info.lines[i],imgWidth/2,labelY+6+i*info.lineH);
+        }
+        return labelH;
+    }
+
+    function loadImageAsRGB(file,bgColor,targetWidth,drawFilename,fileName){
+        return new Promise((resolve,reject)=>{
+            const img=new Image();
+            img.onload=()=>{
+                const useWidth=targetWidth||img.width;
+                const imgHeight=targetWidth?Math.round(img.height*(targetWidth/img.width)):img.height;
+                let labelH=0;
+                if(drawFilename&&fileName){
+                    const tmpC=document.createElement('canvas').getContext('2d');
+                    labelH=calcFilenameHeight(tmpC,useWidth,fileName).totalH;
+                }
+                const totalH=imgHeight+labelH;
+                const tempCanvas=document.createElement('canvas');
+                tempCanvas.width=useWidth;tempCanvas.height=totalH;
+                const tempCtx=tempCanvas.getContext('2d');
+                tempCtx.fillStyle=bgColor;tempCtx.fillRect(0,0,useWidth,totalH);
+                tempCtx.drawImage(img,0,0,useWidth,imgHeight);
+                if(drawFilename&&fileName&&labelH>0){
+                    drawFilenameBelowImage(tempCtx,useWidth,imgHeight,fileName,bgColor);
+                }
+                const outputImg=new Image();
+                outputImg.onload=()=>resolve(outputImg);
+                outputImg.onerror=()=>reject(new Error('渲染失败'));
+                outputImg.src=tempCanvas.toDataURL('image/png');
+            };
+            img.onerror=()=>reject(new Error('图片加载失败'));
+            img.src=URL.createObjectURL(file);
+        });
+    }
+
+    async function processGridMode(loadedImages,gap,margin,bgColor){
+        const N=loadedImages.length,cols=Math.ceil(Math.sqrt(N)),rows=Math.ceil(N/cols);
+        addLog(`网格拼图：${rows} 行 × ${cols} 列`);
+        const colWidths=new Array(cols).fill(0);
+        for(let r=0;r<rows;r++){
+            const start=r*cols,end=Math.min(start+cols,N);
+            for(let c=start;c<end;c++){colWidths[c-start]=Math.max(colWidths[c-start],loadedImages[c].width)}
+        }
+        const rowHeights=new Array(rows).fill(0);
+        for(let r=0;r<rows;r++){
+            const start=r*cols,end=Math.min(start+cols,N);
+            for(let i=start;i<end;i++){rowHeights[r]=Math.max(rowHeights[r],loadedImages[i].height)}
+        }
+        const totalWidth=colWidths.reduce((a,b)=>a+b,0)+(cols-1)*gap+2*margin;
+        const totalHeight=rowHeights.reduce((a,b)=>a+b,0)+(rows-1)*gap+2*margin;
+        const canvas=document.createElement('canvas');canvas.width=totalWidth;canvas.height=totalHeight;
+        const ctx=canvas.getContext('2d');ctx.fillStyle=bgColor;ctx.fillRect(0,0,totalWidth,totalHeight);
+        let currentY=margin;
+        for(let r=0;r<rows;r++){
+            const start=r*cols,end=Math.min(start+cols,N);
+            let currentX=margin;
+            for(let c=start;c<end;c++){
+                const colW=colWidths[c-start];
+                const imgW=loadedImages[c].width;
+                const imgH=loadedImages[c].height;
+                const offsetX=currentX+Math.floor((colW-imgW)/2);
+                const offsetY=currentY+Math.floor((rowHeights[r]-imgH)/2);
+                ctx.drawImage(loadedImages[c],offsetX,offsetY,imgW,imgH);
+                currentX+=colW+gap;
+            }
+            currentY+=rowHeights[r]+gap;
+        }
+        return{canvas,totalWidth,totalHeight};
+    }
+
+    async function processVerticalMode(loadedImages,gap,margin,bgColor){
+        const N=loadedImages.length;addLog(`长拼图：垂直拼接 ${N} 张图片`);
+        const maxWidth=Math.max(...loadedImages.map(img=>img.width));
+        let totalImgHeight=0;for(let img of loadedImages)totalImgHeight+=img.height;
+        const totalHeight=totalImgHeight+(N-1)*gap+2*margin,totalWidth=maxWidth+2*margin;
+        const canvas=document.createElement('canvas');canvas.width=totalWidth;canvas.height=totalHeight;
+        const ctx=canvas.getContext('2d');ctx.fillStyle=bgColor;ctx.fillRect(0,0,totalWidth,totalHeight);
+        let currentY=margin;
+        for(let i=0;i<N;i++){
+            const imgW=loadedImages[i].width;
+            const offsetX=margin+Math.floor((maxWidth-imgW)/2);
+            ctx.drawImage(loadedImages[i],offsetX,currentY,imgW,loadedImages[i].height);
+            currentY+=loadedImages[i].height+gap;
+        }
+        return{canvas,totalWidth,totalHeight};
+    }
+
+    async function processImages(){
+        if(processing){addLog('已有任务进行中',true);return}
+        if(selectedFiles.length===0){addLog('没有图片',true);return}
+        processing=true;processBtn.disabled=true;resetBtn.disabled=true;
+        progressBar.style.display='block';progressBar.value=0;statusSpan.innerText='加载图片中...';
+        const params=getParams(),mode=getCurrentMode();
+        const targetWidth=params.width;
+        addLog(`开始处理，模式：${mode==='grid'?'网格拼图':'长拼图'}，共 ${selectedFiles.length} 张${targetWidth?'，统一宽度 '+targetWidth+'px':'，使用原图宽度'}`);
+        const loadedImages=[];let failedCount=0;
+        for(let i=0;i<selectedFiles.length;i++){
+            try{
+                const fName=selectedFiles[i].name||`图片_${i+1}`;
+                const img=await loadImageAsRGB(selectedFiles[i],params.bgColor,targetWidth,params.drawFilename,fName);
+                loadedImages.push(img);
+                progressBar.value=(i/selectedFiles.length)*30;statusSpan.innerText=`加载中 ${i+1}/${selectedFiles.length}`;
+            }
+            catch(err){failedCount++;addLog(`加载失败 ${selectedFiles[i].name||'图片'}: ${err.message}`,true)}
+        }
+        if(loadedImages.length===0){addLog('没有成功加载任何图片',true);processing=false;processBtn.disabled=false;resetBtn.disabled=false;progressBar.style.display='none';statusSpan.innerText='就绪';return}
+        let result;
+        try{result=mode==='grid'?await processGridMode(loadedImages,params.gap,params.margin,params.bgColor):await processVerticalMode(loadedImages,params.gap,params.margin,params.bgColor)}
+        catch(err){addLog(`拼接失败: ${err.message}`,true);processing=false;processBtn.disabled=false;resetBtn.disabled=false;progressBar.style.display='none';return}
+        progressBar.value=95;statusSpan.innerText='生成下载链接...';
+        result.canvas.toBlob(blob=>{
+            const url=URL.createObjectURL(blob);
+            const a=document.createElement('a');a.href=url;
+            a.download=`${mode==='grid'?'网格':'长图'}_拼图_${loadedImages.length}张.png`;
+            document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+            addLog(`✅ 拼接完成！尺寸 ${result.totalWidth}×${result.totalHeight} 像素，已开始下载`);
+            statusSpan.innerText='完成';progressBar.style.display='none';
+            processing=false;processBtn.disabled=false;resetBtn.disabled=false;progressBar.value=0;
+        },'image/png');
+    }
+
+    dropzone.addEventListener('dragover',e=>{e.preventDefault();dropzone.classList.add('drag-over')});
+    dropzone.addEventListener('dragleave',()=>dropzone.classList.remove('drag-over'));
+    dropzone.addEventListener('drop',e=>{e.preventDefault();dropzone.classList.remove('drag-over');const items=e.dataTransfer.items;if(items&&items.length){const files=[];for(let i=0;i<items.length;i++){const file=items[i].getAsFile();if(file&&file.type.startsWith('image/'))files.push(file)}if(files.length)addFiles(files);else addLog('未检测到图片文件',true)}});
+    dropzone.addEventListener('click',()=>fileInput.click());
+    fileInput.addEventListener('change',e=>{if(e.target.files.length)addFiles(e.target.files);fileInput.value=''});
+    pasteHint.addEventListener('click',async e=>{if(e.target===exitPasteBtn)return;await activatePasteMode()});
+    exitPasteBtn.addEventListener('click',e=>{e.stopPropagation();deactivatePasteMode()});
+    document.addEventListener('paste',onPaste);
+    resetBtn.addEventListener('click',resetFiles);
+    processBtn.addEventListener('click',processImages);
+
+    initTheme();
+    loadSettings();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📘 Excel 目录生成器</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+    <style>
+        :root {
+            --bg: #f0f2f5;
+            --card-bg: #ffffff;
+            --primary: #4F81BD;
+            --primary-dark: #3a6ba5;
+            --success: #4CAF50;
+            --success-dark: #43a047;
+            --text: #333333;
+            --text-secondary: #666666;
+            --text-muted: #999999;
+            --border: #d0d5dd;
+            --border-light: #e8eaed;
+            --radius: 10px;
+            --shadow: 0 2px 16px rgba(0,0,0,0.08);
+            --font: "Microsoft YaHei", "微软雅黑", "PingFang SC", "Helvetica Neue", sans-serif;
+            --mono: "Cascadia Code", "Fira Code", "Consolas", "Courier New", monospace;
+        }
+        [data-theme="dark"]{--bg:#1a1d23;--card-bg:#21252b;--text:#d4d4d4;--text-secondary:#a0a0a0;--text-muted:#6a6a6a;--border:#3a3e47;--border-light:#2d3038;--shadow:0 2px 16px rgba(0,0,0,0.3)}
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 24px 16px;
+            color: var(--text);
+            transition: background .3s, color .3s;
+        }
+
+        .container {
+            max-width: 680px;
+            width: 100%;
+            background: var(--card-bg);
+            border-radius: 14px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        /* ── 头部 ── */
+        .header {
+            background: linear-gradient(135deg, #4F81BD 0%, #3b6eaa 100%);
+            color: #fff;
+            padding: 16px 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header-left h1 {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            margin-bottom: 4px;
+        }
+        .header-left p {
+            opacity: 0.82;
+            font-size: 13px;
+            font-weight: 400;
+        }
+
+        /* ── 主体 ── */
+        .content {
+            padding: 24px 28px;
+        }
+
+        /* ── 拖拽区 ── */
+        .drop-zone {
+            border: 2px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 36px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.25s ease, background .3s;
+            background: #fafbfc;
+            margin-bottom: 20px;
+            user-select: none;
+        }
+        .drop-zone:hover,
+        .drop-zone.dragover {
+            border-color: var(--primary);
+            background: #f0f5ff;
+            box-shadow: 0 0 0 4px rgba(79,129,189,0.08);
+        }
+        .drop-zone.has-file {
+            border-color: var(--success);
+            background: #f4faf5;
+            border-style: solid;
+        }
+        .drop-zone .icon {
+            font-size: 42px;
+            margin-bottom: 8px;
+            line-height: 1;
+        }
+        .drop-zone .title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+        .drop-zone .hint {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        /* ── 文件信息条 ── */
+        .file-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            background: #f8f9fb;
+            border-radius: 8px;
+            margin-bottom: 18px;
+            border: 1px solid var(--border-light);
+            transition: background .3s;
+        }
+        .file-bar .fb-icon { font-size: 18px; flex-shrink: 0; }
+        .file-bar .fb-name {
+            flex: 1;
+            font-weight: 600;
+            font-size: 14px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .file-bar .fb-size {
+            font-size: 12px;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+        .file-bar .fb-remove {
+            cursor: pointer;
+            color: var(--text-muted);
+            font-size: 18px;
+            line-height: 1;
+            flex-shrink: 0;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: all 0.15s;
+            border: none;
+            background: none;
+        }
+        .file-bar .fb-remove:hover {
+            color: #e53935;
+            background: #ffebee;
+        }
+
+        /* ── 表单 ── */
+        .form-group {
+            margin-bottom: 18px;
+        }
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 6px;
+            color: var(--text);
+        }
+        .form-group input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: var(--font);
+            transition: border-color 0.2s, background .3s, color .3s;
+            outline: none;
+            background: #fff;
+            color: var(--text);
+        }
+        .form-group input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79,129,189,0.12);
+        }
+        .form-group .sublabel {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            font-weight: 400;
+        }
+        .form-row {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+        .form-row .form-group { flex: 1; margin-bottom: 0; }
+
+        /* ── 按钮 ── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: var(--font);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+        .btn:active { transform: scale(0.97); }
+        .btn-primary {
+            background: var(--success);
+            color: #fff;
+            width: 100%;
+            padding: 13px;
+            font-size: 15px;
+        }
+        .btn-primary:hover:not(:disabled) { background: var(--success-dark); }
+        .btn-primary:disabled {
+            background: #c0c4cc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-outline {
+            background: #fff;
+            color: var(--primary);
+            border: 1.5px solid var(--primary);
+        }
+        .btn-outline:hover { background: #f0f5ff; }
+        .btn-download {
+            background: var(--primary);
+            color: #fff;
+        }
+        .btn-download:hover { background: var(--primary-dark); }
+        .btn-sm { padding: 6px 14px; font-size: 12px; }
+
+        .theme-btn{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);color:#fff;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:20px;transition:all .2s;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+        .theme-btn:hover{background:rgba(255,255,255,0.25);transform:rotate(30deg)}
+
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+        }
+        .btn-row .btn { flex: 1; }
+
+        /* ── 日志区 ── */
+        .log-area {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border-radius: 8px;
+            padding: 14px 16px;
+            font-family: var(--mono);
+            font-size: 12px;
+            line-height: 1.7;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 16px;
+            min-height: 40px;
+        }
+        .log-area:empty::after {
+            content: "等待操作…";
+            color: #555;
+        }
+        .log-line { margin: 0; }
+        .log-line.info { color: #4FC3F7; }
+        .log-line.success { color: #81C784; }
+        .log-line.error { color: #EF5350; }
+        .log-line.warn { color: #FFB74D; }
+
+        /* ── 状态栏 ── */
+        .status-bar {
+            padding: 10px 28px;
+            background: #f8f9fb;
+            border-top: 1px solid var(--border-light);
+            font-size: 12px;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: background .3s, border-color .3s;
+        }
+        .status-bar .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4CAF50;
+            flex-shrink: 0;
+        }
+        .status-bar .dot.busy {
+            background: #FFB74D;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .hidden { display: none !important; }
+
+        /* ── 响应式 ── */
+        @media (max-width: 500px) {
+            .content { padding: 16px; }
+            .header { padding: 20px; }
+            .header h1 { font-size: 18px; }
+            .drop-zone { padding: 24px 14px; }
+            .btn-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- 头部 -->
+    <div class="header">
+        <div class="header-left">
+            <h1>📘 Excel 目录生成器</h1>
+            <p>选择 Excel 文件，自动生成带超链接的目录页 · 重命名 sheet 后链接自动更新</p>
+        </div>
+        <button class="theme-btn" id="themeBtn" title="切换暗色模式">🌙</button>
+    </div>
+
+    <!-- 主体 -->
+    <div class="content">
+        <!-- 拖拽区 -->
+        <div class="drop-zone" id="dropZone">
+            <div class="icon">📂</div>
+            <div class="title">拖拽 Excel 文件到此处</div>
+            <div class="hint">或点击选择 · 支持 .xlsx / .xlsm / .xltx / .xltm</div>
+            <input type="file" id="fileInput" accept=".xlsx,.xlsm,.xltx,.xltm" hidden>
+        </div>
+
+        <!-- 文件信息条 -->
+        <div class="file-bar hidden" id="fileBar">
+            <span class="fb-icon">📄</span>
+            <span class="fb-name" id="fileName"></span>
+            <span class="fb-size" id="fileSize"></span>
+            <button class="fb-remove" id="btnRemove" title="移除文件">✕</button>
+        </div>
+
+        <!-- 表单 -->
+        <div class="form-group">
+            <label for="tocName">目录页名称</label>
+            <input type="text" id="tocName" value="目录" maxlength="31" placeholder="目录">
+            <div class="sublabel">默认"目录"。工作表名最长 31 个字符</div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <button class="btn btn-primary" id="btnGenerate" disabled>
+            ⚡ 生成目录
+        </button>
+
+        <div class="btn-row hidden" id="resultRow">
+            <button class="btn btn-download" id="btnDownload">📥 下载结果文件</button>
+            <button class="btn btn-outline" id="btnReset">🔄 重新开始</button>
+        </div>
+
+        <!-- 日志 -->
+        <div class="log-area" id="logArea"></div>
+    </div>
+
+    <!-- 状态栏 -->
+    <div class="status-bar">
+        <span class="dot" id="statusDot"></span>
+        <span id="statusText">就绪</span>
+    </div>
+</div>
+
+<script>
+(function () {
+    // ═══════════════════════════════════════════════
+    //  DOM 引用（必须在所有使用之前定义）
+    // ═══════════════════════════════════════════════
+    const $ = (sel) => document.querySelector(sel);
+
+    const dropZone   = $('#dropZone');
+    const fileInput  = $('#fileInput');
+    const fileBar    = $('#fileBar');
+    const fileName   = $('#fileName');
+    const fileSize   = $('#fileSize');
+    const btnRemove  = $('#btnRemove');
+    const tocName    = $('#tocName');
+    const btnGen     = $('#btnGenerate');
+    const resultRow  = $('#resultRow');
+    const btnDownload= $('#btnDownload');
+    const btnReset   = $('#btnReset');
+    const logArea    = $('#logArea');
+    const statusDot  = $('#statusDot');
+    const statusText = $('#statusText');
+    const themeBtn = $('#themeBtn');
+
+    // ═══════════════════════════════════════════════
+    //  暗色模式
+    // ═══════════════════════════════════════════════
+    function initTheme(){
+        const saved=localStorage.getItem('excelToc_theme');
+        const prefersDark=window.matchMedia('(prefers-color-scheme:dark)').matches;
+        applyTheme(saved==='dark'||(!saved&&prefersDark));
+    }
+    function applyTheme(isDark){
+        document.documentElement.setAttribute('data-theme',isDark?'dark':'light');
+        themeBtn.textContent=isDark?'☀️':'🌙';
+        localStorage.setItem('excelToc_theme',isDark?'dark':'light');
+    }
+    themeBtn.addEventListener('click',()=>applyTheme(document.documentElement.getAttribute('data-theme')!=='dark'));
+    window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',e=>{if(!localStorage.getItem('excelToc_theme'))applyTheme(e.matches)});
+
+    // ═══════════════════════════════════════════════
+    //  设置记忆
+    // ═══════════════════════════════════════════════
+    function loadSettings(){
+        const saved=localStorage.getItem('excelToc_settings');
+        if(saved){
+            try{
+                const settings=JSON.parse(saved);
+                if(settings.tocName)tocName.value=settings.tocName;
+            }catch(e){}
+        }
+    }
+    function saveSettings(){
+        const settings={tocName:tocName.value};
+        localStorage.setItem('excelToc_settings',JSON.stringify(settings));
+    }
+    tocName.addEventListener('input',saveSettings);
+
+    // ═══════════════════════════════════════════════
+    //  状态
+    // ═══════════════════════════════════════════════
+    let selectedFile = null;    // File 对象
+    let resultWb = null;       // 生成后的 workbook
+    let resultExt = 'xlsx';    // 输出扩展名
+
+    const SUPPORTED_EXT = ['.xlsx', '.xlsm', '.xltx', '.xltm'];
+
+    // ═══════════════════════════════════════════════
+    //  日志
+    // ═══════════════════════════════════════════════
+    function log(msg, cls = 'info') {
+        const p = document.createElement('p');
+        p.className = 'log-line ' + cls;
+        p.textContent = msg;
+        logArea.appendChild(p);
+        logArea.scrollTop = logArea.scrollHeight;
+    }
+
+    function clearLog() {
+        logArea.innerHTML = '';
+    }
+
+    function setStatus(text, busy = false) {
+        statusText.textContent = text;
+        statusDot.className = busy ? 'dot busy' : 'dot';
+    }
+
+    // ═══════════════════════════════════════════════
+    //  文件大小格式化
+    // ═══════════════════════════════════════════════
+    function formatSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    // ═══════════════════════════════════════════════
+    //  文件选择
+    // ═══════════════════════════════════════════════
+    function selectFile(file) {
+        if (!file) return;
+
+        const ext = '.' + file.name.split('.').pop().toLowerCase();
+        if (!SUPPORTED_EXT.includes(ext)) {
+            alert('不支持的文件格式！\n请使用 .xlsx、.xlsm、.xltx、.xltm 格式的文件。');
+            return;
+        }
+
+        selectedFile = file;
+        fileName.textContent = file.name;
+        fileSize.textContent = formatSize(file.size);
+
+        dropZone.classList.add('has-file');
+        fileBar.classList.remove('hidden');
+        btnGen.disabled = false;
+        resultRow.classList.add('hidden');
+        resultWb = null;
+        clearLog();
+        log('📥 已选择：' + file.name);
+        setStatus('已选择文件：' + file.name);
+    }
+
+    function clearFile() {
+        selectedFile = null;
+        resultWb = null;
+        fileInput.value = '';
+        fileName.textContent = '';
+        fileSize.textContent = '';
+        dropZone.classList.remove('has-file');
+        fileBar.classList.add('hidden');
+        btnGen.disabled = true;
+        resultRow.classList.add('hidden');
+        clearLog();
+        setStatus('就绪');
+    }
+
+    // ── 事件绑定 ──
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files.length > 0) selectFile(fileInput.files[0]);
+    });
+
+    btnRemove.addEventListener('click', (e) => {
+        e.stopPropagation();
+        clearFile();
+    });
+
+    // 拖拽
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+    });
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        if (e.dataTransfer.files.length > 0) {
+            selectFile(e.dataTransfer.files[0]);
+        }
+    });
+
+    // ═══════════════════════════════════════════════
+    //  核心：生成目录
+    // ═══════════════════════════════════════════════
+    function buildFormula(sheetName) {
+        // 转义单引号：' → ''
+        const escaped = sheetName.replace(/'/g, "''");
+
+        // 动态提取工作表名的公式片段
+        // CELL("filename", ref) 返回: C:\path\[Book.xlsx]SheetName
+        // REPLACE(..., 1, FIND("]", ...), "") 去掉路径和文件名，只保留工作表名
+        const extract =
+            `REPLACE(CELL("filename",'${escaped}'!A1),` +
+            `1,FIND("]",CELL("filename",'${escaped}'!A1)),"")`;
+
+        // 完整 HYPERLINK 公式
+        // 链接目标: "#'" & sheetname & "'!A1"  （始终用单引号包裹，兼容含空格/特殊字符的表名）
+        // 显示文字: sheetname（动态，随重命名自动更新）
+        return `=HYPERLINK("#'"&${extract}&"'!A1", ${extract})`;
+    }
+
+    function generateToc() {
+        if (!selectedFile) {
+            alert('请先选择一个 Excel 文件。');
+            return;
+        }
+
+        const sheetName = tocName.value.trim() || '目录';
+        if (sheetName.length > 31) {
+            alert('工作表名称不能超过 31 个字符！');
+            return;
+        }
+
+        clearLog();
+        log('🔍 开始生成目录...');
+        log('  文件：' + selectedFile.name);
+        log('  目录名：' + sheetName);
+        setStatus('处理中…', true);
+        btnGen.disabled = true;
+        btnGen.textContent = '⏳ 处理中…';
+
+        // 使用 setTimeout 让 UI 先更新
+        setTimeout(() => {
+            try {
+                doGenerate(sheetName);
+            } catch (err) {
+                log('❌ 生成失败：' + err.message, 'error');
+                setStatus('失败', false);
+                btnGen.disabled = false;
+                btnGen.textContent = '⚡ 生成目录';
+            }
+        }, 50);
+    }
+
+    function doGenerate(sheetName) {
+        // 读取文件
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const wb = XLSX.read(data, { type: 'array' });
+
+                const sheetNames = wb.SheetNames;
+
+                // 如果目录 sheet 已存在，先删除
+                if (sheetNames.includes(sheetName)) {
+                    const idx = sheetNames.indexOf(sheetName);
+                    sheetNames.splice(idx, 1);
+                    delete wb.Sheets[sheetName];
+                    log('ℹ 已移除旧的目录页', 'warn');
+                }
+
+                // 创建目录 sheet
+                const tocWs = {};
+                tocWs['!ref'] = 'A1:B' + (sheetNames.length + 1);
+
+                // ── 样式定义 ──
+                const headerStyle = {
+                    font: { name: '微软雅黑', sz: 10, bold: true, color: { rgb: 'FFFFFF' } },
+                    fill: { patternType: 'solid', fgColor: { rgb: '4F81BD' } },
+                    alignment: { horizontal: 'center', vertical: 'center', wrapText: false },
+                    border: {
+                        top:    { style: 'thin', color: { rgb: 'D9D9D9' } },
+                        bottom: { style: 'thin', color: { rgb: 'D9D9D9' } },
+                        left:   { style: 'thin', color: { rgb: 'D9D9D9' } },
+                        right:  { style: 'thin', color: { rgb: 'D9D9D9' } },
+                    },
+                };
+
+                const centerStyle = {
+                    font: { name: '微软雅黑', sz: 10 },
+                    alignment: { horizontal: 'center', vertical: 'center' },
+                    border: {
+                        top:    { style: 'thin', color: { rgb: 'D9D9D9' } },
+                        bottom: { style: 'thin', color: { rgb: 'D9D9D9' } },
+                        left:   { style: 'thin', color: { rgb: 'D9D9D9' } },
+                        right:  { style: 'thin', color: { rgb: 'D9D9D9' } },
+                    },
+                };
+
+                const linkStyle = {
+                    font: { name: '微软雅黑', sz: 10, color: { rgb: '0563C1' }, underline: true },
+                    alignment: { horizontal: 'left', vertical: 'center' },
+                    border: {
+                        top:    { style: 'thin', color: { rgb: 'D9D9D9' } },
+                        bottom: { style: 'thin', color: { rgb: 'D9D9D9' } },
+                        left:   { style: 'thin', color: { rgb: 'D9D9D9' } },
+                        right:  { style: 'thin', color: { rgb: 'D9D9D9' } },
+                    },
+                };
+
+                // ── 表头 ──
+                const cellA1 = { t: 's', v: '序号', s: headerStyle };
+                const cellB1 = { t: 's', v: '工作表名称', s: headerStyle };
+                tocWs['A1'] = cellA1;
+                tocWs['B1'] = cellB1;
+
+                // ── 数据行 ──
+                for (let i = 0; i < sheetNames.length; i++) {
+                    const row = i + 2;
+                    const name = sheetNames[i];
+                    const formula = buildFormula(name);
+
+                    tocWs['A' + row] = { t: 'n', v: i + 1, s: centerStyle };
+                    tocWs['B' + row] = { f: formula, t: 's', v: '', s: linkStyle };
+                }
+
+                // ── 列宽 & 冻结 ──
+                tocWs['!cols'] = [
+                    { wch: 10 },   // A 列
+                    { wch: 36 },   // B 列
+                ];
+                tocWs['!freeze'] = { xsplit: 0, ysplit: 1 };
+
+                // ── 插入到最前面 ──
+                wb.SheetNames.unshift(sheetName);
+                wb.Sheets[sheetName] = tocWs;
+
+                // ── 全局字体：所有 sheet 的单元格设为微软雅黑 10 ──
+                log('  正在设置全局字体（微软雅黑 10）…');
+                for (const sn of wb.SheetNames) {
+                    const ws = wb.Sheets[sn];
+                    if (!ws || sn === sheetName) continue; // 目录 sheet 已设置
+                    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+                    for (let r = range.s.r; r <= range.e.r; r++) {
+                        for (let c = range.s.c; c <= range.e.c; c++) {
+                            const addr = XLSX.utils.encode_cell({ r, c });
+                            const cell = ws[addr];
+                            if (cell) {
+                                const oldFont = (cell.s && cell.s.font) || {};
+                                cell.s = cell.s || {};
+                                cell.s.font = {
+                                    name: '微软雅黑',
+                                    sz: 10,
+                                    bold: oldFont.bold || false,
+                                    color: oldFont.color || { rgb: '000000' },
+                                    italic: oldFont.italic || false,
+                                    underline: oldFont.underline || false,
+                                    strike: oldFont.strike || false,
+                                };
+                            }
+                        }
+                    }
+                }
+
+                // ── 确定输出格式 ──
+                const origExt = selectedFile.name.split('.').pop().toLowerCase();
+                // 模板格式转为普通格式
+                const extMap = { xltx: 'xlsx', xltm: 'xlsm' };
+                resultExt = extMap[origExt] || origExt;
+
+                resultWb = wb;
+
+                log('✅ 目录生成成功！共 ' + sheetNames.length + ' 个超链接', 'success');
+                if (origExt === 'xlsm' || origExt === 'xltm') {
+                    log('⚠ 注意：.xlsm/.xltm 文件中的 VBA 宏可能丢失', 'warn');
+                }
+                setStatus('完成 — 共 ' + sheetNames.length + ' 个工作表');
+                btnGen.textContent = '⚡ 生成目录';
+                btnGen.disabled = false;
+                resultRow.classList.remove('hidden');
+
+            } catch (err) {
+                log('❌ 处理失败：' + err.message, 'error');
+                console.error(err);
+                setStatus('失败');
+                btnGen.disabled = false;
+                btnGen.textContent = '⚡ 生成目录';
+            }
+        };
+
+        reader.onerror = function () {
+            log('❌ 读取文件失败', 'error');
+            setStatus('读取失败');
+            btnGen.disabled = false;
+            btnGen.textContent = '⚡ 生成目录';
+        };
+
+        reader.readAsArrayBuffer(selectedFile);
+    }
+
+    btnGen.addEventListener('click', generateToc);
+
+    // ═══════════════════════════════════════════════
+    //  下载结果
+    // ═══════════════════════════════════════════════
+    btnDownload.addEventListener('click', () => {
+        if (!resultWb) {
+            alert('没有可下载的结果，请先生成目录。');
+            return;
+        }
+
+        try {
+            const data = XLSX.write(resultWb, { type: 'array', bookType: resultExt });
+            const blob = new Blob([data], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+
+            const baseName = selectedFile.name.replace(/\.[^.]+$/, '');
+            const downloadName = baseName + '_带目录.' + resultExt;
+
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = downloadName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            log('💾 已下载：' + downloadName, 'success');
+            setStatus('已下载：' + downloadName);
+        } catch (err) {
+            log('❌ 下载失败：' + err.message, 'error');
+        }
+    });
+
+    // ═══════════════════════════════════════════════
+    //  重置
+    // ═══════════════════════════════════════════════
+    btnReset.addEventListener('click', clearFile);
+
+    // ═══════════════════════════════════════════════
+    //  初始化
+    // ═══════════════════════════════════════════════
+    initTheme();
+    loadSettings();
+    setStatus('就绪');
+})();
+</script>
+
+</body>
+</html>

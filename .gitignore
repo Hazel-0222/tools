@@ -1,0 +1,21 @@
+# 忽略根目录所有旧文件
+/*.pdf
+/*.png
+/*.xlsx
+/*.py
+/*.pyc
+/*.json
+/*.txt
+/*.html
+/*.md
+!README.md
+!index.html
+__pycache__/
+SVN_MultiPatch_*/
+提高表达能力/
+新建文件夹/
+看图王批量图片转换结果/
+20260728_出包需求邮件格式参考_图片提取/
+*.xlsx
+~$*
+*.lnk

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📘 Word 图片提取</title>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<style>
+:root{--bg:#f0f2f5;--card-bg:#fff;--primary:#4F81BD;--success:#4CAF50;--text:#333;--text-secondary:#666;--text-muted:#999;--border:#d0d5dd;--radius:10px;--shadow:0 2px 16px rgba(0,0,0,0.08);--font:"Microsoft YaHei","微软雅黑",sans-serif;--mono:"Cascadia Code","Consolas",monospace}
+[data-theme="dark"]{--bg:#1a1d23;--card-bg:#21252b;--text:#d4d4d4;--text-secondary:#a0a0a0;--text-muted:#6a6a6a;--border:#3a3e47;--shadow:0 2px 16px rgba(0,0,0,0.3)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--bg);min-height:100vh;display:flex;justify-content:center;align-items:flex-start;padding:24px 16px;color:var(--text);transition:background .3s,color .3s}
+.container{max-width:760px;width:100%;background:var(--card-bg);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+.header{background:linear-gradient(135deg,#4F81BD,#3b6eaa);color:#fff;padding:16px 28px;display:flex;justify-content:space-between;align-items:center}
+.header-left h1{font-size:22px;font-weight:700;margin-bottom:4px}
+.header-left p{opacity:.82;font-size:13px}
+.content{padding:24px 28px}
+.drop-zone{border:2px dashed var(--border);border-radius:var(--radius);padding:36px 20px;text-align:center;cursor:pointer;transition:all .25s,background .3s;background:#fafbfc;margin-bottom:16px;user-select:none}
+.drop-zone:hover,.drop-zone.dragover{border-color:var(--primary);background:#f0f5ff}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 20px;border:none;border-radius:8px;font-size:14px;font-weight:600;font-family:var(--font);cursor:pointer;transition:all .2s}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--success);color:#fff;width:100%;padding:13px;font-size:15px}
+.btn-primary:hover:not(:disabled){background:#43a047}
+.btn-primary:disabled{background:#c0c4cc;cursor:not-allowed}
+.btn-outline{background:#fff;color:var(--primary);border:1.5px solid var(--primary)}
+.btn-outline:hover{background:#f0f5ff}
+.btn-row{display:flex;gap:10px;margin-top:14px}
+.btn-row .btn{flex:1}
+.preview-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin:14px 0;max-height:300px;overflow-y:auto}
+.preview-grid img{width:100%;border-radius:6px;border:1px solid #e8eaed;cursor:pointer;transition:transform .2s}
+.preview-grid img:hover{transform:scale(1.05)}
+.log-area{background:#1e1e1e;color:#d4d4d4;border-radius:8px;padding:14px 16px;font-family:var(--mono);font-size:12px;line-height:1.7;max-height:160px;overflow-y:auto;margin-top:16px;min-height:40px}
+.status-bar{padding:10px 28px;background:#f8f9fb;border-top:1px solid #e8eaed;font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:6px;transition:background .3s,border-color .3s}
+.status-bar .dot{width:8px;height:8px;border-radius:50%;background:#4CAF50;flex-shrink:0}
+.hidden{display:none!important}
+.theme-btn{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);color:#fff;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:20px;transition:all .2s;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.theme-btn:hover{background:rgba(255,255,255,0.25);transform:rotate(30deg)}
+@media(max-width:500px){.content{padding:16px}.header{padding:20px}}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="header"><div class="header-left"><h1>📘 Word 图片提取</h1><p>从 .docx 文件中提取所有图片 · 按文档顺序排列 · 支持批量下载</p></div><button class="theme-btn" id="themeBtn" title="切换暗色模式">🌙</button></div>
+<div class="content">
+<div class="drop-zone" id="dropZone">
+    <div style="font-size:42px;margin-bottom:8px">📂</div>
+    <div style="font-size:15px;font-weight:600">拖入 .docx 文件</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:4px">或点击选择 · 纯浏览器处理，不上传</div>
+    <input type="file" id="fileInput" accept=".docx" hidden>
+</div>
+<div class="preview-grid hidden" id="previewGrid"></div>
+<div class="btn-row hidden" id="resultBtns">
+    <button class="btn btn-outline" id="btnDownloadAll">📥 打包下载全部</button>
+    <button class="btn btn-outline" id="btnClear">🧹 清空</button>
+</div>
+<div class="log-area" id="logArea"></div>
+</div>
+<div class="status-bar"><span class="dot" id="statusDot"></span><span id="statusText">就绪</span></div>
+</div>
+<script>
+(function(){
+const $=s=>document.querySelector(s);
+const logArea=$('#logArea'),dropZone=$('#dropZone'),fileInput=$('#fileInput');
+const previewGrid=$('#previewGrid'),resultBtns=$('#resultBtns');
+const statusDot=$('#statusDot'),statusText=$('#statusText');
+
+// ── 暗色模式 ──
+const themeBtn=$('#themeBtn');
+function initTheme(){
+    const saved=localStorage.getItem('wordExtractImg_theme');
+    const prefersDark=window.matchMedia('(prefers-color-scheme:dark)').matches;
+    applyTheme(saved==='dark'||(!saved&&prefersDark));
+}
+function applyTheme(isDark){
+    document.documentElement.setAttribute('data-theme',isDark?'dark':'light');
+    themeBtn.textContent=isDark?'☀️':'🌙';
+    localStorage.setItem('wordExtractImg_theme',isDark?'dark':'light');
+}
+themeBtn.addEventListener('click',()=>applyTheme(document.documentElement.getAttribute('data-theme')!=='dark'));
+window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',e=>{if(!localStorage.getItem('wordExtractImg_theme'))applyTheme(e.matches)});
+
+let extractedImages=[];
+function log(m,c){const s=c||'color:#4FC3F7';logArea.innerHTML+=`<span style="${s}">${m}</span><br>`;logArea.scrollTop=logArea.scrollHeight}
+function setStatus(t,b){statusText.textContent=t;statusDot.className=b?'dot busy':'dot'}
+
+async function extractImages(file){
+    extractedImages=[];previewGrid.innerHTML='';resultBtns.classList.add('hidden');
+    log('📄 正在解析：'+file.name);
+    setStatus('解析中…',true);
+    try{
+        const zip=await JSZip.loadAsync(file);
+        // Read document.xml to get image order
+        let docXml='';
+        if(zip.file('word/document.xml')){
+            docXml=await zip.file('word/document.xml').async('string');
+        }
+        // Parse relationships
+        let relsXml='';
+        if(zip.file('word/_rels/document.xml.rels')){
+            relsXml=await zip.file('word/_rels/document.xml.rels').async('string');
+        }
+        const parser=new DOMParser();
+        const relsDoc=parser.parseFromString(relsXml,'text/xml');
+        const rels=relsDoc.getElementsByTagName('Relationship');
+        const ridToTarget={};
+        for(let r of rels){
+            const rid=r.getAttribute('Id'),target=r.getAttribute('Target');
+            if(rid&&target&&target.startsWith('media/'))ridToTarget[rid]=target;
+        }
+        // Find image order from document.xml
+        const orderedRids=[];
+        const seen=new Set();
+        if(docXml){
+            const docDoc=parser.parseFromString(docXml,'text/xml');
+            // Find all blip elements
+            const blips=docDoc.getElementsByTagName('a:blip');
+            for(let b of blips){
+                const embed=b.getAttribute('r:embed');
+                if(embed&&!seen.has(embed)){seen.add(embed);orderedRids.push(embed)}
+            }
+            // Also check pic:blip
+            const picBlips=docDoc.getElementsByTagName('pic:blip');
+            for(let b of picBlips){
+                const embed=b.getAttribute('r:embed');
+                if(embed&&!seen.has(embed)){seen.add(embed);orderedRids.push(embed)}
+            }
+        }
+        if(!orderedRids.length){
+            // Fallback: just extract all media
+            Object.keys(ridToTarget).forEach(k=>{if(!seen.has(k)){seen.add(k);orderedRids.push(k)}});
+        }
+        log('🔍 找到 '+orderedRids.length+' 个图片引用');
+        for(let i=0;i<orderedRids.length;i++){
+            const rid=orderedRids[i],target=ridToTarget[rid];
+            if(!target)continue;
+            const zipPath='word/'+target;
+            const f=zip.file(zipPath);
+            if(!f)continue;
+            const blob=await f.async('blob');
+            const ext=target.split('.').pop().toLowerCase()||'png';
+            extractedImages.push({name:`image_${i+1}.${ext}`,blob,url:URL.createObjectURL(blob)});
+            const img=document.createElement('img');img.src=extractedImages[extractedImages.length-1].url;
+            img.title=`image_${i+1}.${ext}`;
+            img.addEventListener('click',()=>{const a=document.createElement('a');a.download=extractedImages.find(x=>x.url===img.src).name;a.href=img.src;a.click()});
+            previewGrid.appendChild(img);
+        }
+        previewGrid.classList.remove('hidden');
+        resultBtns.classList.remove('hidden');
+        log(`✅ 成功提取 ${extractedImages.length} 张图片`,'color:#81C784');
+        setStatus('已提取 '+extractedImages.length+' 张图片');
+    }catch(e){
+        log('❌ 提取失败：'+e.message,'color:#EF5350');
+        setStatus('失败');
+    }
+}
+
+dropZone.addEventListener('click',()=>fileInput.click());
+fileInput.addEventListener('change',()=>{if(fileInput.files[0])extractImages(fileInput.files[0])});
+dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.add('dragover')});
+dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.classList.remove('dragover');if(e.dataTransfer.files[0])extractImages(e.dataTransfer.files[0])});
+
+$('#btnDownloadAll').addEventListener('click',async()=>{
+    if(!extractedImages.length)return;
+    if(extractedImages.length===1){
+        const f=extractedImages[0];const a=document.createElement('a');a.download=f.name;a.href=f.url;a.click();return;
+    }
+    const zip=new JSZip();
+    const names={};
+    extractedImages.forEach(f=>{let n=f.name;let c=1;while(names[n]){n=f.name.replace(/(\.[^.]+)$/,'_'+c+'$1');c++}names[n]=true;zip.file(n,f.blob)});
+    const content=await zip.generateAsync({type:'blob'});
+    const a=document.createElement('a');a.download='Word图片提取.zip';a.href=URL.createObjectURL(content);a.click();
+    log('💾 已打包下载全部图片','color:#81C784');
+});
+$('#btnClear').addEventListener('click',()=>{
+    extractedImages.forEach(f=>URL.revokeObjectURL(f.url));
+    extractedImages=[];previewGrid.innerHTML='';previewGrid.classList.add('hidden');resultBtns.classList.add('hidden');
+    log('🧹 已清空');
+});
+
+log('🚀 工具启动成功');
+setStatus('就绪');
+initTheme();
+})();
+</script>
+</body>
+</html>
