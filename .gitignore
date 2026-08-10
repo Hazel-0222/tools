@@ -9,6 +9,7 @@
 /*.html
 /*.md
 !README.md
+!GITHUB_仓库结构说明.md
 !index.html
 __pycache__/
 SVN_MultiPatch_*/
