@@ -22,11 +22,5 @@
         "desc": "自动生成工作表目录页，超链接跳转，纯浏览器处理",
         "category": "Excel",
         "path": "excel/excel-add-toc/"
-    },
-    {
-        "name": "Excel 差异对比",
-        "desc": "对比两个 .xlsx 表格，按行匹配差异，支持关键列匹配",
-        "category": "Excel",
-        "path": "excel/excel-diff/"
     }
 ]
