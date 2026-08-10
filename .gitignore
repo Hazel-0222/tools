@@ -5,6 +5,7 @@
 /*.py
 /*.pyc
 /*.json
+!tools.json
 /*.txt
 /*.html
 /*.md

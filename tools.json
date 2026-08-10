@@ -1,0 +1,37 @@
+[
+    {
+        "name": "图片拼接",
+        "desc": "网格拼接、长图合成，支持粘贴截图，纯浏览器处理",
+        "icon": "🖼️",
+        "category": "Image",
+        "path": "image/image-stitch/"
+    },
+    {
+        "name": "Word 图片提取",
+        "desc": "从 .docx 文件中提取所有图片，按文档顺序排列",
+        "icon": "📄",
+        "category": "Word",
+        "path": "word/word-extract-images/"
+    },
+    {
+        "name": "Word 差异对比",
+        "desc": "对比两个 .docx 文档差异，段落级比对，支持导出报告",
+        "icon": "🔍",
+        "category": "Word",
+        "path": "word/word-diff/"
+    },
+    {
+        "name": "Excel 目录生成",
+        "desc": "自动生成工作表目录页，超链接跳转，纯浏览器处理",
+        "icon": "📊",
+        "category": "Excel",
+        "path": "excel/excel-add-toc/"
+    },
+    {
+        "name": "Excel 差异对比",
+        "desc": "对比两个 .xlsx 表格，按行匹配差异，支持关键列匹配",
+        "icon": "📋",
+        "category": "Excel",
+        "path": "excel/excel-diff/"
+    }
+]
