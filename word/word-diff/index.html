@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word 差异对比</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/diff@7.0.0/dist/diff.min.js"></script>
+    <style>
+        :root {
+            --bg: #f8f9fa;
+            --surface: #ffffff;
+            --text: #1a1a2e;
+            --text-secondary: #555;
+            --text-muted: #999;
+            --border: #e0e0e0;
+            --accent: #2563eb;
+            --accent-hover: #1d4ed8;
+            --del-bg: #ffeef0;
+            --del-text: #cb2431;
+            --del-highlight: #fdb8c0;
+            --ins-bg: #e6ffec;
+            --ins-text: #22863a;
+            --ins-highlight: #acf2bd;
+            --radius: 12px;
+            --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #0d1117;
+                --surface: #161b22;
+                --text: #c9d1d9;
+                --text-secondary: #8b949e;
+                --text-muted: #484f58;
+                --border: #30363d;
+                --accent: #58a6ff;
+                --accent-hover: #79c0ff;
+                --del-bg: #49020233;
+                --del-text: #f85149;
+                --del-highlight: #f8514944;
+                --ins-bg: #04260f33;
+                --ins-text: #3fb950;
+                --ins-highlight: #3fb95044;
+            }
+        }
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0 24px;
+            height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+        .header h1 { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+        .badge {
+            font-size: 11px; padding: 3px 8px; border-radius: 100px;
+            background: var(--accent); color: #fff; font-weight: 500;
+        }
+        .btn {
+            font-size: 13px; font-weight: 500; padding: 7px 16px; border-radius: 6px;
+            border: 1px solid var(--border); background: var(--surface); color: var(--text);
+            cursor: pointer; transition: all 0.15s; font-family: var(--font); white-space: nowrap;
+        }
+        .btn:hover { background: var(--bg); }
+        .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .btn-primary:hover { background: var(--accent-hover); }
+        .btn-sm { padding: 5px 10px; font-size: 12px; }
+        .btn-export { background: #22863a; color: #fff; border-color: #22863a; }
+        .btn-export:hover { background: #1a6d30; }
+
+        /* Upload */
+        .upload-section {
+            display: flex; gap: 24px; padding: 32px 24px; flex-shrink: 0;
+        }
+        @media (max-width: 640px) { .upload-section { flex-direction: column; } }
+        .upload-box {
+            flex: 1; border: 2px dashed var(--border); border-radius: var(--radius);
+            padding: 28px; text-align: center; cursor: pointer; transition: all 0.2s;
+            background: var(--surface); position: relative;
+        }
+        .upload-box:hover, .upload-box.dragover {
+            border-color: var(--accent); background: rgba(37, 99, 235, 0.03);
+        }
+        .upload-box.has-file {
+            border-style: solid; border-color: var(--accent); background: rgba(37, 99, 235, 0.03);
+        }
+        .upload-icon { font-size: 36px; margin-bottom: 10px; }
+        .upload-label { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+        .upload-hint { font-size: 12px; color: var(--text-muted); }
+        .upload-filename { font-size: 13px; font-weight: 500; color: var(--accent); margin-top: 8px; word-break: break-all; }
+        .upload-box input { display: none; }
+
+        .loading { text-align: center; padding: 20px; color: var(--text-secondary); font-size: 14px; display: none; }
+        .loading.visible { display: block; }
+        .spinner {
+            display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border);
+            border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite;
+            vertical-align: middle; margin-right: 8px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Result */
+        .result-section { display: none; flex-direction: column; flex: 1; min-height: 0; border-top: 1px solid var(--border); }
+        .result-section.visible { display: flex; }
+        .result-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 24px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0;
+            flex-wrap: wrap; gap: 8px;
+        }
+        .result-stats { display: flex; gap: 16px; font-size: 13px; }
+        .stat { display: flex; align-items: center; gap: 4px; }
+        .stat-num { font-weight: 700; }
+        .stat-add { color: var(--ins-text); }
+        .stat-del { color: var(--del-text); }
+        .result-content { flex: 1; overflow: auto; padding: 20px 24px; line-height: 1.8; }
+
+        .diff-block { margin-bottom: 16px; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); }
+        .diff-block .para-num { color: var(--text-muted); font-size: 11px; display: block; margin-bottom: 4px; user-select: none; }
+        .diff-block.del { border-left: 3px solid var(--del-text); background: var(--del-bg); }
+        .diff-block.ins { border-left: 3px solid var(--ins-text); background: var(--ins-bg); }
+        .diff-block.mod { border-left: 3px solid var(--accent); }
+        .diff-block del { background: var(--del-highlight); color: var(--del-text); text-decoration: line-through; padding: 1px 0; }
+        .diff-block ins { background: var(--ins-highlight); color: var(--ins-text); text-decoration: none; padding: 1px 0; }
+
+        .empty-state {
+            display: flex; align-items: center; justify-content: center; height: 100%;
+            color: var(--text-muted); font-size: 14px; flex-direction: column; gap: 8px;
+        }
+        .empty-state .icon { font-size: 48px; opacity: 0.5; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>📄 Word 差异对比 <span class="badge">DOCX Diff</span></h1>
+        <div class="header-actions">
+            <button class="btn btn-sm" onclick="clearAll()">清空</button>
+            <button class="btn btn-sm" onclick="swapFiles()">⇄ 交换</button>
+            <button class="btn btn-sm btn-export" id="btnExport" onclick="exportDocx()" style="display:none">📥 导出 DOCX</button>
+        </div>
+    </div>
+
+    <div class="upload-section">
+        <div class="upload-box" id="boxOld" onclick="this.querySelector('input').click()">
+            <div class="upload-icon">📄</div>
+            <div class="upload-label">原始文档</div>
+            <div class="upload-hint">点击选择或拖拽 .docx 文件</div>
+            <div class="upload-filename" id="nameOld"></div>
+            <input type="file" accept=".docx" onchange="handleFile(this, 'old')">
+        </div>
+        <div class="upload-box" id="boxNew" onclick="this.querySelector('input').click()">
+            <div class="upload-icon">📝</div>
+            <div class="upload-label">新文档</div>
+            <div class="upload-hint">点击选择或拖拽 .docx 文件</div>
+            <div class="upload-filename" id="nameNew"></div>
+            <input type="file" accept=".docx" onchange="handleFile(this, 'new')">
+        </div>
+    </div>
+
+    <div class="loading" id="loading">
+        <span class="spinner"></span>正在解析文档并对比...
+    </div>
+
+    <div class="result-section" id="resultSection">
+        <div class="result-header">
+            <div class="result-stats">
+                <span class="stat">📊 共 <span class="stat-num" id="statTotal">0</span> 段</span>
+                <span class="stat stat-add">+ <span class="stat-num" id="statAdd">0</span> 新增</span>
+                <span class="stat stat-del">- <span class="stat-num" id="statDel">0</span> 删除</span>
+                <span class="stat">≈ <span class="stat-num" id="statMod">0</span> 修改</span>
+            </div>
+        </div>
+        <div class="result-content" id="resultContent">
+            <div class="empty-state">
+                <div class="icon">📄 📝</div>
+                请选择两个 Word 文档开始对比
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const files = { old: null, new: null };
+        let currentDiffResult = null; // store for export
+
+        function handleFile(input, side) {
+            const file = input.files[0];
+            if (!file) return;
+            files[side] = file;
+            const nameEl = side === 'old' ? document.getElementById('nameOld') : document.getElementById('nameNew');
+            const boxEl = side === 'old' ? document.getElementById('boxOld') : document.getElementById('boxNew');
+            nameEl.textContent = '📎 ' + file.name;
+            boxEl.classList.add('has-file');
+            input.value = '';
+            if (files.old && files.new) autoDiff();
+        }
+
+        ['boxOld', 'boxNew'].forEach(id => {
+            const box = document.getElementById(id);
+            const side = id === 'boxOld' ? 'old' : 'new';
+            box.addEventListener('dragover', e => { e.preventDefault(); box.classList.add('dragover'); });
+            box.addEventListener('dragleave', () => box.classList.remove('dragover'));
+            box.addEventListener('drop', e => {
+                e.preventDefault();
+                box.classList.remove('dragover');
+                const file = e.dataTransfer.files[0];
+                if (file && file.name.endsWith('.docx')) {
+                    files[side] = file;
+                    const nameEl = side === 'old' ? document.getElementById('nameOld') : document.getElementById('nameNew');
+                    nameEl.textContent = '📎 ' + file.name;
+                    box.classList.add('has-file');
+                    if (files.old && files.new) autoDiff();
+                }
+            });
+        });
+
+        function clearAll() {
+            files.old = null; files.new = null;
+            currentDiffResult = null;
+            document.getElementById('nameOld').textContent = '';
+            document.getElementById('nameNew').textContent = '';
+            document.getElementById('boxOld').classList.remove('has-file');
+            document.getElementById('boxNew').classList.remove('has-file');
+            document.getElementById('resultSection').classList.remove('visible');
+            document.getElementById('btnExport').style.display = 'none';
+            document.getElementById('resultContent').innerHTML = '<div class="empty-state"><div class="icon">📄 📝</div>请选择两个 Word 文档开始对比</div>';
+        }
+
+        function swapFiles() {
+            [files.old, files.new] = [files.new, files.old];
+            document.getElementById('nameOld').textContent = files.old ? '📎 ' + files.old.name : '';
+            document.getElementById('nameNew').textContent = files.new ? '📎 ' + files.new.name : '';
+            document.getElementById('boxOld').classList.toggle('has-file', !!files.old);
+            document.getElementById('boxNew').classList.toggle('has-file', !!files.new);
+            if (files.old && files.new) autoDiff();
+        }
+
+        // ─── Parse DOCX → array of paragraphs ───
+        async function parseDocx(file) {
+            const buffer = await file.arrayBuffer();
+            const zip = await JSZip.loadAsync(buffer);
+            const docXml = await zip.file('word/document.xml')?.async('text');
+            if (!docXml) throw new Error('不是有效的 .docx 文件');
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(docXml, 'text/xml');
+            const ns = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+
+            // Get body element
+            const body = xmlDoc.getElementsByTagNameNS(ns, 'body')[0];
+            if (!body) return [];
+
+            const paragraphs = [];
+            // Iterate body children in document order
+            for (const child of body.children) {
+                if (child.tagName === 'w:p' || child.localName === 'p') {
+                    const textNodes = child.getElementsByTagNameNS(ns, 't');
+                    let text = '';
+                    for (const t of textNodes) text += t.textContent;
+                    paragraphs.push(text);
+                } else if (child.tagName === 'w:tbl' || child.localName === 'tbl') {
+                    // Table → extract cell text
+                    const rows = child.getElementsByTagNameNS(ns, 'tr');
+                    const rowTexts = [];
+                    for (const row of rows) {
+                        const cells = row.getElementsByTagNameNS(ns, 'tc');
+                        const cellTexts = [];
+                        for (const cell of cells) {
+                            const tNodes = cell.getElementsByTagNameNS(ns, 't');
+                            let ct = '';
+                            for (const t of tNodes) ct += t.textContent;
+                            cellTexts.push(ct);
+                        }
+                        rowTexts.push(cellTexts.join(' | '));
+                    }
+                    paragraphs.push('[表格] ' + rowTexts.join(' → '));
+                }
+            }
+            return paragraphs;
+        }
+
+        // ─── LCS-based paragraph-level diff ───
+        function diffParagraphs(oldParas, newParas) {
+            const m = oldParas.length, n = newParas.length;
+            const dp = Array.from({ length: m + 1 }, () => new Int32Array(n + 1));
+            for (let i = 1; i <= m; i++) {
+                for (let j = 1; j <= n; j++) {
+                    if (oldParas[i-1] === newParas[j-1]) {
+                        dp[i][j] = dp[i-1][j-1] + 1;
+                    } else {
+                        dp[i][j] = Math.max(dp[i-1][j], dp[i][j-1]);
+                    }
+                }
+            }
+            const ops = [];
+            let i = m, j = n;
+            while (i > 0 || j > 0) {
+                if (i > 0 && j > 0 && oldParas[i-1] === newParas[j-1]) {
+                    ops.unshift({ type: 'ctx', oldIdx: i-1, newIdx: j-1, text: oldParas[i-1] });
+                    i--; j--;
+                } else if (j > 0 && (i === 0 || dp[i][j-1] >= dp[i-1][j])) {
+                    ops.unshift({ type: 'ins', oldIdx: null, newIdx: j-1, text: newParas[j-1] });
+                    j--;
+                } else {
+                    ops.unshift({ type: 'del', oldIdx: i-1, newIdx: null, text: oldParas[i-1] });
+                    i--;
+                }
+            }
+            return ops;
+        }
+
+        function esc(str) {
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        function autoDiff() {
+            document.getElementById('loading').classList.add('visible');
+            document.getElementById('resultSection').classList.remove('visible');
+            setTimeout(async () => {
+                try {
+                    const oldParas = await parseDocx(files.old);
+                    const newParas = await parseDocx(files.new);
+                    const ops = diffParagraphs(oldParas, newParas);
+                    renderDiff(ops);
+                    currentDiffResult = { oldParas, newParas, ops };
+                    document.getElementById('btnExport').style.display = '';
+                } catch (err) {
+                    document.getElementById('resultContent').innerHTML = `<div class="empty-state"><div class="icon">⚠️</div>解析失败：${esc(err.message)}</div>`;
+                    document.getElementById('resultSection').classList.add('visible');
+                }
+                document.getElementById('loading').classList.remove('visible');
+            }, 50);
+        }
+
+        function renderDiff(ops) {
+            let html = '';
+            let blockNum = 0;
+            let adds = 0, dels = 0, mods = 0;
+
+            for (const op of ops) {
+                if (op.type === 'ctx') continue; // skip unchanged
+
+                blockNum++;
+                if (op.type === 'del') {
+                    dels++;
+                    html += `<div class="diff-block del"><span class="para-num">§${blockNum} 删除</span><del>${esc(op.text)}</del></div>`;
+                } else if (op.type === 'ins') {
+                    adds++;
+                    html += `<div class="diff-block ins"><span class="para-num">§${blockNum} 新增</span><ins>${esc(op.text)}</ins></div>`;
+                }
+            }
+
+            // Now also detect modified paragraphs: find adjacent del+ins pairs and inline-diff them
+            // We rebuild the display with modification detection
+            let html2 = '';
+            let bn = 0;
+            let a = 0, d = 0, m = 0;
+            const used = new Set();
+
+            for (let i = 0; i < ops.length; i++) {
+                if (used.has(i)) continue;
+                const op = ops[i];
+
+                if (op.type === 'del' && i + 1 < ops.length && ops[i + 1].type === 'ins' && !used.has(i + 1)) {
+                    // Modified paragraph: show inline diff
+                    const nextOp = ops[i + 1];
+                    used.add(i); used.add(i + 1);
+                    m++; bn++;
+                    const inlineDiff = Diff.diffWordsWithSpace(op.text, nextOp.text);
+                    let inlineHtml = '';
+                    for (const part of inlineDiff) {
+                        if (part.removed) {
+                            inlineHtml += `<del>${esc(part.value)}</del>`;
+                        } else if (part.added) {
+                            inlineHtml += `<ins>${esc(part.value)}</ins>`;
+                        } else {
+                            inlineHtml += esc(part.value);
+                        }
+                    }
+                    html2 += `<div class="diff-block mod"><span class="para-num">§${bn} 修改</span>${inlineHtml}</div>`;
+                } else if (op.type === 'ctx') {
+                    continue;
+                } else if (op.type === 'del') {
+                    d++; bn++;
+                    html2 += `<div class="diff-block del"><span class="para-num">§${bn} 删除</span><del>${esc(op.text)}</del></div>`;
+                } else if (op.type === 'ins') {
+                    a++; bn++;
+                    html2 += `<div class="diff-block ins"><span class="para-num">§${bn} 新增</span><ins>${esc(op.text)}</ins></div>`;
+                }
+            }
+
+            if (!html2) {
+                html2 = '<div class="empty-state"><div class="icon">✅</div>两个文档内容完全一致</div>';
+            }
+
+            document.getElementById('statTotal').textContent = bn;
+            document.getElementById('statAdd').textContent = a;
+            document.getElementById('statDel').textContent = d;
+            document.getElementById('statMod').textContent = m;
+            document.getElementById('resultContent').innerHTML = html2;
+            document.getElementById('resultSection').classList.add('visible');
+        }
+
+        // ─── Export DOCX ───
+        async function exportDocx() {
+            if (!currentDiffResult) return;
+            const { oldParas, newParas, ops } = currentDiffResult;
+
+            // Build visible diff blocks (same logic as renderDiff)
+            const blocks = [];
+            const used = new Set();
+            for (let i = 0; i < ops.length; i++) {
+                if (used.has(i)) continue;
+                const op = ops[i];
+                if (op.type === 'ctx') continue;
+                if (op.type === 'del' && i + 1 < ops.length && ops[i + 1].type === 'ins' && !used.has(i + 1)) {
+                    used.add(i); used.add(i + 1);
+                    blocks.push({ type: 'mod', oldText: op.text, newText: ops[i + 1].text });
+                } else if (op.type === 'del') {
+                    blocks.push({ type: 'del', oldText: op.text });
+                } else if (op.type === 'ins') {
+                    blocks.push({ type: 'ins', newText: op.text });
+                }
+            }
+
+            // Build DOCX XML
+            const ns = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+            const r = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+
+            let bodyXml = '';
+            for (const block of blocks) {
+                if (block.type === 'del') {
+                    bodyXml += `<w:p><w:pPr><w:rPr><w:color w:val="CB2431"/><w:strike w:val="true"/></w:rPr></w:pPr><w:r><w:rPr><w:color w:val="CB2431"/><w:strike w:val="true"/></w:rPr><w:t xml:space="preserve">[删除] ${xmlEscape(block.oldText)}</w:t></w:r></w:p>`;
+                } else if (block.type === 'ins') {
+                    bodyXml += `<w:p><w:pPr><w:rPr><w:color w:val="22863A"/></w:rPr></w:pPr><w:r><w:rPr><w:color w:val="22863A"/></w:rPr><w:t xml:space="preserve">[新增] ${xmlEscape(block.newText)}</w:t></w:r></w:p>`;
+                } else if (block.type === 'mod') {
+                    bodyXml += `<w:p><w:r><w:rPr><w:color w:val="CB2431"/><w:strike w:val="true"/></w:rPr><w:t xml:space="preserve">${xmlEscape(block.oldText)}</w:t></w:r></w:p>`;
+                    bodyXml += `<w:p><w:r><w:rPr><w:color w:val="22863A"/></w:rPr><w:t xml:space="preserve">${xmlEscape(block.newText)}</w:t></w:r></w:p>`;
+                }
+            }
+
+            const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+            xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+    <w:body>
+        <w:p><w:pPr><w:pStyle w:val="Title"/></w:pPr><w:r><w:t>文档差异对比报告</w:t></w:r></w:p>
+        <w:p><w:r><w:t xml:space="preserve">原始文档: ${xmlEscape(files.old.name)}</w:t></w:r></w:p>
+        <w:p><w:r><w:t xml:space="preserve">新文档: ${xmlEscape(files.new.name)}</w:t></w:r></w:p>
+        <w:p><w:r><w:t xml:space="preserve">对比时间: ${new Date().toLocaleString('zh-CN')}</w:t></w:r></w:p>
+        <w:p><w:r><w:t xml:space="preserve"> </w:t></w:r></w:p>
+        <w:p><w:r><w:rPr><w:b/><w:sz w:val="28"/></w:rPr><w:t>图例</w:t></w:r></w:p>
+        <w:p><w:r><w:rPr><w:color w:val="CB2431"/><w:strike w:val="true"/></w:rPr><w:t>红色删除线 = 删除内容</w:t></w:r></w:p>
+        <w:p><w:r><w:rPr><w:color w:val="22863A"/></w:rPr><w:t>绿色 = 新增内容</w:t></w:r></w:p>
+        <w:p><w:r><w:t xml:space="preserve"> </w:t></w:r></w:p>
+        ${bodyXml}
+    </w:body>
+</w:document>`;
+
+            const zip = new JSZip();
+            zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+    <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+    <Default Extension="xml" ContentType="application/xml"/>
+    <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`);
+            zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+    <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`);
+            zip.file('word/document.xml', documentXml);
+            zip.file('word/_rels/document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+    <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`);
+            zip.file('word/styles.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+    <w:style w:type="paragraph" w:styleId="Title">
+        <w:name w:val="Title"/>
+        <w:rPr><w:b/><w:sz w:val="36"/></w:rPr>
+    </w:style>
+    <w:style w:type="paragraph" w:styleId="Normal">
+        <w:name w:val="Normal"/>
+        <w:rPr><w:sz w:val="22"/></w:rPr>
+    </w:style>
+</w:styles>`);
+
+            const blob = await zip.generateAsync({ type: 'blob' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = '差异对比报告.docx';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function xmlEscape(s) {
+            return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+    </script>
+</body>
+</html>

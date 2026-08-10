@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel 差异对比</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --bg: #f8f9fa;
+            --surface: #ffffff;
+            --text: #1a1a2e;
+            --text-secondary: #555;
+            --text-muted: #999;
+            --border: #e0e0e0;
+            --accent: #2563eb;
+            --accent-hover: #1d4ed8;
+            --del-bg: #ffeef0;
+            --del-text: #cb2431;
+            --del-highlight: #fdb8c0;
+            --ins-bg: #e6ffec;
+            --ins-text: #22863a;
+            --ins-highlight: #acf2bd;
+            --radius: 12px;
+            --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #0d1117;
+                --surface: #161b22;
+                --text: #c9d1d9;
+                --text-secondary: #8b949e;
+                --text-muted: #484f58;
+                --border: #30363d;
+                --accent: #58a6ff;
+                --accent-hover: #79c0ff;
+                --del-bg: #49020233;
+                --del-text: #f85149;
+                --del-highlight: #f8514944;
+                --ins-bg: #04260f33;
+                --ins-text: #3fb950;
+                --ins-highlight: #3fb95044;
+            }
+        }
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0 24px;
+            height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+        .header h1 { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+        .badge {
+            font-size: 11px; padding: 3px 8px; border-radius: 100px;
+            background: var(--accent); color: #fff; font-weight: 500;
+        }
+        .btn {
+            font-size: 13px; font-weight: 500; padding: 7px 16px; border-radius: 6px;
+            border: 1px solid var(--border); background: var(--surface); color: var(--text);
+            cursor: pointer; transition: all 0.15s; font-family: var(--font); white-space: nowrap;
+        }
+        .btn:hover { background: var(--bg); }
+        .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .btn-primary:hover { background: var(--accent-hover); }
+        .btn-sm { padding: 5px 10px; font-size: 12px; }
+        .btn-active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+        /* Upload */
+        .upload-section {
+            display: flex;
+            gap: 24px;
+            padding: 32px 24px;
+            flex-shrink: 0;
+        }
+        @media (max-width: 640px) { .upload-section { flex-direction: column; } }
+        .upload-box {
+            flex: 1;
+            border: 2px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 28px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: var(--surface);
+        }
+        .upload-box:hover, .upload-box.dragover {
+            border-color: var(--accent);
+            background: rgba(37, 99, 235, 0.03);
+        }
+        .upload-box.has-file {
+            border-style: solid;
+            border-color: var(--accent);
+            background: rgba(37, 99, 235, 0.03);
+        }
+        .upload-icon { font-size: 36px; margin-bottom: 10px; }
+        .upload-label { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+        .upload-hint { font-size: 12px; color: var(--text-muted); }
+        .upload-filename { font-size: 13px; font-weight: 500; color: var(--accent); margin-top: 8px; word-break: break-all; }
+        .upload-box input { display: none; }
+
+        /* Loading */
+        .loading { text-align: center; padding: 20px; color: var(--text-secondary); font-size: 14px; display: none; }
+        .loading.visible { display: block; }
+        .spinner {
+            display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border);
+            border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite;
+            vertical-align: middle; margin-right: 8px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Result */
+        .result-section { display: none; flex-direction: column; flex: 1; min-height: 0; border-top: 1px solid var(--border); }
+        .result-section.visible { display: flex; }
+        .result-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 24px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0;
+            flex-wrap: wrap; gap: 8px;
+        }
+        .result-stats { display: flex; gap: 16px; font-size: 13px; flex-wrap: wrap; }
+        .stat { display: flex; align-items: center; gap: 4px; }
+        .stat-num { font-weight: 700; }
+        .stat-add { color: var(--ins-text); }
+        .stat-del { color: var(--del-text); }
+        .stat-mod { color: var(--accent); }
+
+        /* Sheet tabs */
+        .sheet-tabs {
+            display: flex; gap: 0; padding: 0 24px; background: var(--surface);
+            border-bottom: 1px solid var(--border); flex-shrink: 0; overflow-x: auto;
+        }
+        .sheet-tab {
+            padding: 8px 16px; font-size: 13px; font-weight: 500; cursor: pointer;
+            border: none; background: none; color: var(--text-secondary);
+            font-family: var(--font); border-bottom: 2px solid transparent;
+            transition: all 0.15s; white-space: nowrap;
+        }
+        .sheet-tab:hover { color: var(--text); }
+        .sheet-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+        .sheet-tab .tab-stat { font-size: 11px; margin-left: 4px; opacity: 0.7; }
+
+        /* Table */
+        .table-wrap { flex: 1; overflow: auto; padding: 0 24px 24px; }
+        table {
+            border-collapse: collapse; width: max-content; min-width: 100%;
+            font-size: 13px; line-height: 1.5;
+        }
+        thead { position: sticky; top: 0; z-index: 2; }
+        thead th {
+            background: var(--surface); border-bottom: 2px solid var(--border);
+            padding: 8px 14px; font-weight: 600; text-align: left; white-space: nowrap;
+            font-size: 12px; color: var(--text-secondary);
+        }
+        tbody td {
+            padding: 6px 14px; border-bottom: 1px solid var(--border);
+            white-space: nowrap; max-width: 400px; overflow: hidden; text-overflow: ellipsis;
+        }
+        tbody tr.row-del { background: var(--del-bg); }
+        tbody tr.row-ins { background: var(--ins-bg); }
+        tbody tr.row-mod { background: rgba(37, 99, 235, 0.04); }
+        td.cell-del { background: var(--del-highlight); color: var(--del-text); }
+        td.cell-ins { background: var(--ins-highlight); color: var(--ins-text); }
+        td.cell-mod { font-weight: 500; }
+        td.cell-mod .old-val { color: var(--del-text); text-decoration: line-through; font-size: 11px; display: block; }
+        td.cell-mod .new-val { color: var(--ins-text); font-size: 11px; display: block; }
+        td.row-num { color: var(--text-muted); font-size: 11px; text-align: center; width: 40px; user-select: none; }
+        td.row-tag { width: 50px; font-size: 11px; font-weight: 600; text-align: center; }
+        .row-del td.row-tag { color: var(--del-text); }
+        .row-ins td.row-tag { color: var(--ins-text); }
+        .row-mod td.row-tag { color: var(--accent); }
+
+        .empty-state {
+            display: flex; align-items: center; justify-content: center; height: 200px;
+            color: var(--text-muted); font-size: 14px; flex-direction: column; gap: 8px;
+        }
+        .empty-state .icon { font-size: 48px; opacity: 0.5; }
+
+        /* Key column selector */
+        .key-selector {
+            display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary);
+        }
+        .key-selector select {
+            padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border);
+            background: var(--surface); color: var(--text); font-size: 13px; font-family: var(--font);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>📊 Excel 差异对比 <span class="badge">XLSX Diff</span></h1>
+        <div class="header-actions">
+            <button class="btn btn-sm" onclick="clearAll()">清空</button>
+            <button class="btn btn-sm" onclick="swapFiles()">⇄ 交换</button>
+        </div>
+    </div>
+
+    <div class="upload-section">
+        <div class="upload-box" id="boxOld" onclick="this.querySelector('input').click()">
+            <div class="upload-icon">📊</div>
+            <div class="upload-label">原始文件</div>
+            <div class="upload-hint">点击选择或拖拽 .xlsx / .xls 文件</div>
+            <div class="upload-filename" id="nameOld"></div>
+            <input type="file" accept=".xlsx,.xls" onchange="handleFile(this, 'old')">
+        </div>
+        <div class="upload-box" id="boxNew" onclick="this.querySelector('input').click()">
+            <div class="upload-icon">📈</div>
+            <div class="upload-label">新文件</div>
+            <div class="upload-hint">点击选择或拖拽 .xlsx / .xls 文件</div>
+            <div class="upload-filename" id="nameNew"></div>
+            <input type="file" accept=".xlsx,.xls" onchange="handleFile(this, 'new')">
+        </div>
+    </div>
+
+    <div class="loading" id="loading">
+        <span class="spinner"></span>正在解析文件并对比...
+    </div>
+
+    <div class="result-section" id="resultSection">
+        <div class="result-header">
+            <div class="result-stats">
+                <span class="stat">📊 共 <span class="stat-num" id="statTotal">0</span> 行差异</span>
+                <span class="stat stat-add">+ <span class="stat-num" id="statAdd">0</span> 新增行</span>
+                <span class="stat stat-del">- <span class="stat-num" id="statDel">0</span> 删除行</span>
+                <span class="stat stat-mod">≈ <span class="stat-num" id="statMod">0</span> 修改行</span>
+            </div>
+            <div class="key-selector">
+                <span>匹配键列：</span>
+                <select id="keyColSelect" onchange="onKeyColChange()">
+                    <option value="0">第 1 列</option>
+                </select>
+            </div>
+        </div>
+        <div class="sheet-tabs" id="sheetTabs"></div>
+        <div class="table-wrap" id="tableWrap">
+            <div class="empty-state">
+                <div class="icon">📊 📈</div>
+                请选择两个 Excel 文件开始对比
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const files = { old: null, new: null };
+        let allResults = {}; // { sheetName: { headers, rows } }
+        let currentSheet = '';
+        let currentKeyCol = 0;
+
+        function handleFile(input, side) {
+            const file = input.files[0];
+            if (!file) return;
+            files[side] = file;
+            const nameEl = side === 'old' ? document.getElementById('nameOld') : document.getElementById('nameNew');
+            const boxEl = side === 'old' ? document.getElementById('boxOld') : document.getElementById('boxNew');
+            nameEl.textContent = '📎 ' + file.name;
+            boxEl.classList.add('has-file');
+            input.value = '';
+            if (files.old && files.new) autoDiff();
+        }
+
+        ['boxOld', 'boxNew'].forEach(id => {
+            const box = document.getElementById(id);
+            const side = id === 'boxOld' ? 'old' : 'new';
+            box.addEventListener('dragover', e => { e.preventDefault(); box.classList.add('dragover'); });
+            box.addEventListener('dragleave', () => box.classList.remove('dragover'));
+            box.addEventListener('drop', e => {
+                e.preventDefault();
+                box.classList.remove('dragover');
+                const file = e.dataTransfer.files[0];
+                if (file && /\.xlsx?$/i.test(file.name)) {
+                    files[side] = file;
+                    const nameEl = side === 'old' ? document.getElementById('nameOld') : document.getElementById('nameNew');
+                    nameEl.textContent = '📎 ' + file.name;
+                    box.classList.add('has-file');
+                    if (files.old && files.new) autoDiff();
+                }
+            });
+        });
+
+        function clearAll() {
+            files.old = null; files.new = null;
+            allResults = {}; currentSheet = '';
+            document.getElementById('nameOld').textContent = '';
+            document.getElementById('nameNew').textContent = '';
+            document.getElementById('boxOld').classList.remove('has-file');
+            document.getElementById('boxNew').classList.remove('has-file');
+            document.getElementById('resultSection').classList.remove('visible');
+            document.getElementById('sheetTabs').innerHTML = '';
+            document.getElementById('tableWrap').innerHTML = '<div class="empty-state"><div class="icon">📊 📈</div>请选择两个 Excel 文件开始对比</div>';
+        }
+
+        function swapFiles() {
+            [files.old, files.new] = [files.new, files.old];
+            document.getElementById('nameOld').textContent = files.old ? '📎 ' + files.old.name : '';
+            document.getElementById('nameNew').textContent = files.new ? '📎 ' + files.new.name : '';
+            document.getElementById('boxOld').classList.toggle('has-file', !!files.old);
+            document.getElementById('boxNew').classList.toggle('has-file', !!files.new);
+            if (files.old && files.new) autoDiff();
+        }
+
+        function parseExcel(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    try {
+                        const wb = XLSX.read(e.target.result, { type: 'array' });
+                        const sheets = {};
+                        wb.SheetNames.forEach(name => {
+                            const sheet = wb.Sheets[name];
+                            const data = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+                            // Filter empty rows
+                            const rows = data.filter(row => row.some(cell => cell !== '' && cell !== null));
+                            sheets[name] = rows;
+                        });
+                        resolve(sheets);
+                    } catch (err) { reject(err); }
+                };
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        function esc(str) {
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        function autoDiff() {
+            document.getElementById('loading').classList.add('visible');
+            document.getElementById('resultSection').classList.remove('visible');
+            setTimeout(async () => {
+                try {
+                    const [oldSheets, newSheets] = await Promise.all([
+                        parseExcel(files.old), parseExcel(files.new)
+                    ]);
+                    allResults = {};
+                    const allSheetNames = [...new Set([...Object.keys(oldSheets), ...Object.keys(newSheets)])];
+                    for (const name of allSheetNames) {
+                        const oldRows = oldSheets[name] || [];
+                        const newRows = newSheets[name] || [];
+                        allResults[name] = diffSheet(oldRows, newRows);
+                    }
+                    renderAll();
+                } catch (err) {
+                    document.getElementById('tableWrap').innerHTML = `<div class="empty-state"><div class="icon">⚠️</div>解析失败：${esc(err.message)}</div>`;
+                    document.getElementById('resultSection').classList.add('visible');
+                }
+                document.getElementById('loading').classList.remove('visible');
+            }, 50);
+        }
+
+        function diffSheet(oldRows, newRows) {
+            if (oldRows.length === 0 && newRows.length === 0) return { headers: [], rows: [], stats: { adds: 0, dels: 0, mods: 0 } };
+
+            // Determine header row
+            const maxCols = Math.max(
+                oldRows.length > 0 ? oldRows[0].length : 0,
+                newRows.length > 0 ? newRows[0].length : 0
+            );
+            const headers = oldRows.length > 0 ? oldRows[0] : newRows[0];
+            const oldData = oldRows.slice(1);
+            const newData = newRows.slice(1);
+
+            // Build maps using key column
+            const keyCol = currentKeyCol;
+            const oldMap = new Map();
+            const newMap = new Map();
+
+            oldData.forEach((row, i) => {
+                const key = String(row[keyCol] ?? '').trim();
+                oldMap.set(key, { row, idx: i + 1 });
+            });
+            newData.forEach((row, i) => {
+                const key = String(row[keyCol] ?? '').trim();
+                newMap.set(key, { row, idx: i + 1 });
+            });
+
+            const resultRows = [];
+            let adds = 0, dels = 0, mods = 0;
+
+            // Process all keys
+            const allKeys = new Set([...oldMap.keys(), ...newMap.keys()]);
+            for (const key of allKeys) {
+                const oldEntry = oldMap.get(key);
+                const newEntry = newMap.get(key);
+
+                if (oldEntry && !newEntry) {
+                    // Deleted
+                    resultRows.push({
+                        type: 'del',
+                        oldRow: oldEntry.row,
+                        oldRowNum: oldEntry.idx,
+                        newRow: null,
+                        newRowNum: null,
+                        changes: []
+                    });
+                    dels++;
+                } else if (!oldEntry && newEntry) {
+                    // Added
+                    resultRows.push({
+                        type: 'ins',
+                        oldRow: null,
+                        oldRowNum: null,
+                        newRow: newEntry.row,
+                        newRowNum: newEntry.idx,
+                        changes: []
+                    });
+                    adds++;
+                } else {
+                    // Both exist — check for modifications
+                    const changes = [];
+                    const maxLen = Math.max(oldEntry.row.length, newEntry.row.length);
+                    for (let c = 0; c < maxLen; c++) {
+                        const ov = String(oldEntry.row[c] ?? '');
+                        const nv = String(newEntry.row[c] ?? '');
+                        if (ov !== nv) {
+                            changes.push({ col: c, oldVal: ov, newVal: nv });
+                        }
+                    }
+                    if (changes.length > 0) {
+                        resultRows.push({
+                            type: 'mod',
+                            oldRow: oldEntry.row,
+                            oldRowNum: oldEntry.idx,
+                            newRow: newEntry.row,
+                            newRowNum: newEntry.idx,
+                            changes
+                        });
+                        mods++;
+                    }
+                }
+            }
+
+            return { headers, rows: resultRows, stats: { adds, dels, mods } };
+        }
+
+        function renderAll() {
+            const sheetNames = Object.keys(allResults);
+            if (sheetNames.length === 0) {
+                document.getElementById('tableWrap').innerHTML = '<div class="empty-state"><div class="icon">✅</div>两个文件完全一致</div>';
+                document.getElementById('resultSection').classList.add('visible');
+                return;
+            }
+
+            // Run diff again for all sheets with current key column
+            Object.keys(allResults).forEach(name => {
+                // Re-diff is needed if keyCol changed — we handle this in onKeyColChange
+            });
+
+            // Render sheet tabs
+            const tabsHtml = sheetNames.map((name, i) => {
+                const s = allResults[name].stats;
+                return `<button class="sheet-tab${i === 0 ? ' active' : ''}" data-sheet="${esc(name)}" onclick="switchSheet('${esc(name)}')">
+                    ${esc(name)}<span class="tab-stat">(${s.adds + s.dels + s.mods})</span>
+                </button>`;
+            }).join('');
+            document.getElementById('sheetTabs').innerHTML = tabsHtml;
+
+            // Update key column selector
+            const firstSheet = allResults[sheetNames[0]];
+            const headers = firstSheet.headers;
+            const keySelect = document.getElementById('keyColSelect');
+            keySelect.innerHTML = headers.map((h, i) => {
+                const label = h ? String(h).substring(0, 20) : `第 ${i + 1} 列`;
+                return `<option value="${i}">${esc(label)}</option>`;
+            }).join('');
+
+            document.getElementById('resultSection').classList.add('visible');
+            switchSheet(sheetNames[0]);
+        }
+
+        function switchSheet(name) {
+            currentSheet = name;
+            document.querySelectorAll('.sheet-tab').forEach(t => t.classList.remove('active'));
+            document.querySelector(`.sheet-tab[data-sheet="${esc(name)}"]`)?.classList.add('active');
+
+            const result = allResults[name];
+            if (!result) return;
+
+            const { headers, rows, stats } = result;
+            const maxCols = headers.length;
+
+            // Update stats
+            document.getElementById('statTotal').textContent = stats.adds + stats.dels + stats.mods;
+            document.getElementById('statAdd').textContent = stats.adds;
+            document.getElementById('statDel').textContent = stats.dels;
+            document.getElementById('statMod').textContent = stats.mods;
+
+            // Build table
+            let html = '<table><thead><tr><th>#</th><th>状态</th>';
+            for (let c = 0; c < maxCols; c++) {
+                html += `<th>${esc(headers[c] || `列${c + 1}`)}</th>`;
+            }
+            html += '</tr></thead><tbody>';
+
+            for (const row of rows) {
+                const tag = row.type === 'del' ? '删除' : row.type === 'ins' ? '新增' : '修改';
+                const tagColor = row.type === 'del' ? 'var(--del-text)' : row.type === 'ins' ? 'var(--ins-text)' : 'var(--accent)';
+                html += `<tr class="row-${row.type}">`;
+                html += `<td class="row-num">${row.type === 'del' ? row.oldRowNum : row.newRowNum || '-'}</td>`;
+                html += `<td class="row-tag" style="color:${tagColor}">${tag}</td>`;
+
+                const changeCols = new Set(row.changes.map(c => c.col));
+                const displayRow = row.type === 'del' ? row.oldRow : row.newRow;
+
+                for (let c = 0; c < maxCols; c++) {
+                    const val = displayRow ? String(displayRow[c] ?? '') : '';
+                    if (changeCols.has(c)) {
+                        const ch = row.changes.find(cc => cc.col === c);
+                        html += `<td class="cell-mod"><span class="old-val">${esc(ch.oldVal)}</span><span class="new-val">${esc(ch.newVal)}</span></td>`;
+                    } else if (row.type === 'del') {
+                        html += `<td class="cell-del">${esc(val)}</td>`;
+                    } else if (row.type === 'ins') {
+                        html += `<td class="cell-ins">${esc(val)}</td>`;
+                    } else {
+                        html += `<td>${esc(val)}</td>`;
+                    }
+                }
+                html += '</tr>';
+            }
+            html += '</tbody></table>';
+
+            if (rows.length === 0) {
+                html = '<div class="empty-state"><div class="icon">✅</div>此工作表内容完全一致</div>';
+            }
+
+            document.getElementById('tableWrap').innerHTML = html;
+        }
+
+        function onKeyColChange() {
+            currentKeyCol = parseInt(document.getElementById('keyColSelect').value);
+            // Re-diff all sheets
+            if (files.old && files.new) {
+                document.getElementById('loading').classList.add('visible');
+                setTimeout(async () => {
+                    try {
+                        const [oldSheets, newSheets] = await Promise.all([
+                            parseExcel(files.old), parseExcel(files.new)
+                        ]);
+                        allResults = {};
+                        const allSheetNames = [...new Set([...Object.keys(oldSheets), ...Object.keys(newSheets)])];
+                        for (const name of allSheetNames) {
+                            const oldRows = oldSheets[name] || [];
+                            const newRows = newSheets[name] || [];
+                            allResults[name] = diffSheet(oldRows, newRows);
+                        }
+                        renderAll();
+                    } catch (err) {
+                        document.getElementById('tableWrap').innerHTML = `<div class="empty-state"><div class="icon">⚠️</div>解析失败：${esc(err.message)}</div>`;
+                    }
+                    document.getElementById('loading').classList.remove('visible');
+                }, 50);
+            }
+        }
+    </script>
+</body>
+</html>
