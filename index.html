@@ -20,12 +20,12 @@
 <style>
 :root {
     /* ── 浅色主题 Token ── */
-    --bg: #f2f3fc;
+    --bg: #eef0fb;
     --page-bg-image:
-        radial-gradient(900px 520px at 10% -10%, rgba(0,113,227,.10), transparent 60%),
-        radial-gradient(760px 480px at 90% 0%, rgba(122,92,255,.09), transparent 60%),
-        radial-gradient(840px 560px at 50% 108%, rgba(255,154,186,.08), transparent 60%),
-        linear-gradient(165deg, #eef2fb 0%, #f4effb 55%, #fbf2f5 100%);
+        radial-gradient(900px 520px at 10% -10%, rgba(0,113,227,.145), transparent 60%),
+        radial-gradient(760px 480px at 90% 0%, rgba(122,92,255,.125), transparent 60%),
+        radial-gradient(840px 560px at 50% 108%, rgba(255,154,186,.105), transparent 60%),
+        linear-gradient(165deg, #e7ecfb 0%, #eee9fc 55%, #f6ecf2 100%);
     --card-bg: #ffffff;
     --input-bg: rgba(255,255,255,0.85);
     --text: #1d1d1f;
@@ -36,17 +36,24 @@
     --hover-bg: rgba(0,0,0,0.045);
     --chip-bg: rgba(0,0,0,0.05);
     --chip-active-bg: rgba(0,113,227,0.12);
+    --hd-veil: rgba(255,255,255,0.65);
     --shadow: 0 1px 3px rgba(0,0,0,0.06);
     --shadow-hover: 0 8px 24px rgba(0,0,0,0.12);
+    --panel-shadow:
+        0 2px 8px rgba(13,25,60,0.04),
+        0 24px 56px -16px rgba(13,25,60,0.14);
+    --panel-shadow-hover:
+        0 4px 12px rgba(13,25,60,0.06),
+        0 32px 72px -20px rgba(13,25,60,0.24);
 }
 [data-theme="dark"] {
     /* ── 深色主题 Token ── */
-    --bg: #0f1015;
+    --bg: #0f1016;
     --page-bg-image:
         radial-gradient(900px 520px at 10% -10%, rgba(80,140,255,.13), transparent 60%),
         radial-gradient(760px 480px at 90% 0%, rgba(139,124,255,.10), transparent 60%),
         radial-gradient(840px 560px at 50% 108%, rgba(255,140,180,.06), transparent 60%),
-        linear-gradient(165deg, #131420 0%, #101018 55%, #180f1d 100%);
+        linear-gradient(165deg, #12131f 0%, #0f0f1a 55%, #150f1b 100%);
     --card-bg: #1a1b22;
     --input-bg: #14151c;
     --text: #ededf1;
@@ -57,8 +64,15 @@
     --hover-bg: rgba(255,255,255,0.06);
     --chip-bg: rgba(255,255,255,0.08);
     --chip-active-bg: rgba(94,162,245,0.18);
+    --hd-veil: rgba(255,255,255,0.05);
     --shadow: 0 1px 2px rgba(0,0,0,0.5);
     --shadow-hover: 0 8px 24px rgba(0,0,0,0.5);
+    --panel-shadow:
+        0 8px 20px rgba(0,0,0,0.34),
+        0 32px 64px -16px rgba(0,0,0,0.42);
+    --panel-shadow-hover:
+        0 10px 26px rgba(0,0,0,0.42),
+        0 40px 80px -20px rgba(0,0,0,0.52);
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html { scroll-behavior: smooth; }
@@ -82,8 +96,8 @@ body {
     flex-wrap: wrap;
     gap: 20px;
 }
-h1 { font-size: 40px; font-weight: 700; letter-spacing: -0.5px; }
-.subtitle { color: var(--text-secondary); font-size: 17px; margin-top: 8px; }
+h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.3px; }
+.subtitle { color: var(--text-secondary); font-size: 13px; margin-top: 3px; line-height: 1.55; }
 .hero-actions { display: flex; align-items: center; gap: 10px; }
 .search {
     display: flex; align-items: center; gap: 8px;
@@ -111,64 +125,63 @@ h1 { font-size: 40px; font-weight: 700; letter-spacing: -0.5px; }
 }
 .theme-toggle:hover { transform: scale(1.08); }
 
-/* ── 双栏布局：左导航 + 右内容 ── */
-.main {
+/* ── 分类卡片：一行两列并排 ── */
+#sections {
     display: grid;
-    grid-template-columns: 196px 1fr;
-    gap: 48px;
-    margin-top: 36px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
     align-items: start;
+    margin-top: 36px;
 }
-.content-col { min-width: 0; }
-
-/* ── 左侧分类导航（滚动时固定） ── */
-.sidebar { position: sticky; top: 36px; }
-.sidebar-label {
-    font-size: 12px; font-weight: 600; letter-spacing: 1.5px;
-    text-transform: uppercase; color: var(--text-secondary);
-    margin-bottom: 12px;
-}
-.nav { display: flex; flex-direction: column; gap: 2px; }
-.nav-item {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 8px; padding: 9px 12px; border-radius: 10px;
-    text-decoration: none; color: var(--text-secondary);
-    font-size: 14px; font-weight: 500;
-    transition: background 0.15s, color 0.15s;
-}
-.nav-item:hover { background: var(--hover-bg); color: var(--text); }
-.nav-item.active { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
-.nav-item .nav-txt { display: flex; align-items: center; gap: 8px; }
-.nav-count {
-    font-size: 11px; font-weight: 600; color: var(--text-secondary);
-    background: var(--chip-bg); border-radius: 999px; padding: 1px 7px;
-}
-.nav-item.active .nav-count { background: var(--chip-active-bg); color: var(--primary); }
-
-/* ── 右侧分类区块：标题 + 渐隐分隔线 ── */
-.cat-section { scroll-margin-top: 28px; margin-bottom: 44px; }
-.cat-head { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
-.cat-title { font-size: 21px; font-weight: 700; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
-.cat-line {
-    flex: 1; height: 1px; min-width: 24px;
-    background: linear-gradient(to right, var(--border), transparent);
-}
-.cat-count { font-size: 13px; color: var(--text-secondary); font-weight: 500; white-space: nowrap; }
-.tools { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
-.tool-card {
+.cat-panel {
     background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 20px;
+    border-radius: 18px;
+    box-shadow: var(--panel-shadow);
+    overflow: hidden;
+    scroll-margin-top: 24px;
+    transition: box-shadow 0.2s, transform 0.2s;
+}
+.cat-panel:hover { box-shadow: var(--panel-shadow-hover); transform: translateY(-3px); }
+.cat-hd {
+    position: relative;
+    z-index: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 26px 16px;
+}
+.cat-hd::before {
+    /* 65% 白纱：页面淡彩透白纱，圆角跟随卡片顶部 */
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    background:
+        linear-gradient(var(--hd-veil), var(--hd-veil)),
+        var(--page-bg-image);
+}
+.cat-hd .ico { font-size: 34px; line-height: 1; flex-shrink: 0; }
+.cat-hd .hdtext { min-width: 0; }
+.cat-title { font-size: 20px; font-weight: 600; letter-spacing: -0.3px; }
+.cat-desc { font-size: 13px; color: var(--text-secondary); margin-top: 3px; }
+
+/* 工具列表：从上到下 */
+.tool-list { padding: 4px 10px 10px; }
+.tool-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 13px 12px;
     text-decoration: none;
     color: var(--text);
-    box-shadow: var(--shadow);
-    transition: transform 0.2s, box-shadow 0.2s, background-color 0.2s;
+    transition: background 0.15s;
 }
-.tool-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); }
-.tool-category { font-size: 11px; color: var(--primary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; }
-.tool-name { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
-.tool-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+.tool-item:hover { background: var(--hover-bg); }
+.tool-item + .tool-item { border-top: 1px solid var(--border); }
+.ti-txt { flex: 1; min-width: 0; }
+.ti-name { font-size: 15px; font-weight: 500; }
+.ti-desc { font-size: 13px; color: var(--text-secondary); margin-top: 2px; line-height: 1.45; }
+.ti-arrow { color: var(--text-secondary); font-size: 18px; flex-shrink: 0; }
 
 /* ── 无搜索结果空态 ── */
 .empty-state {
@@ -178,18 +191,15 @@ h1 { font-size: 40px; font-weight: 700; letter-spacing: -0.5px; }
     font-size: 15px;
 }
 
-/* ── 移动端：导航变横排 ── */
+/* ── 移动端 ── */
 @media (max-width: 860px) {
     body { padding: 32px 18px 64px; }
-    h1 { font-size: 32px; }
     .hero-actions { width: 100%; }
     .search { flex: 1; width: auto; min-width: 0; }
-    .main { grid-template-columns: 1fr; gap: 28px; margin-top: 28px; }
-    .sidebar { position: static; }
-    .sidebar-label { display: none; }
-    .nav { flex-direction: row; overflow-x: auto; padding-bottom: 6px; gap: 6px; }
-    .nav-item { white-space: nowrap; }
-    .nav-count { display: none; }
+    #sections { grid-template-columns: 1fr; gap: 20px; }
+    .cat-panel { border-radius: 14px; }
+    .cat-hd { padding: 18px 20px 14px; }
+    .tool-list { padding: 2px 6px 8px; }
 }
 </style>
 </head>
@@ -197,7 +207,7 @@ h1 { font-size: 40px; font-weight: 700; letter-spacing: -0.5px; }
 <div class="container">
     <header class="hero">
         <div>
-            <h1>🛠️ Tools</h1>
+            <h1>Tools</h1>
             <p class="subtitle">纯浏览器端工具合集，无需安装，打开即用</p>
         </div>
         <div class="hero-actions">
@@ -209,16 +219,8 @@ h1 { font-size: 40px; font-weight: 700; letter-spacing: -0.5px; }
         </div>
     </header>
 
-    <div class="main">
-        <aside class="sidebar">
-            <div class="sidebar-label">目录</div>
-            <nav id="cat-nav" class="nav"></nav>
-        </aside>
-        <div class="content-col">
-            <main id="sections"></main>
-            <div id="empty-state" class="empty-state" hidden>🔍 未找到匹配的工具</div>
-        </div>
-    </div>
+    <main id="sections"></main>
+    <div id="empty-state" class="empty-state" hidden>🔍 未找到匹配的工具</div>
 </div>
 
 <script>
@@ -231,12 +233,12 @@ const TOOLS = [
     { "name": "TTS 文本转语音", "desc": "离线语音合成，输入文字生成 WAV 音频，需启动 Python 服务", "category": "TTS", "path": "tts/" }
 ];
 
-// 分类元信息（图标等）
+// 分类元信息（图标 + 卡片头说明）
 const CATEGORY_META = {
-    Image: { icon: "🖼️" },
-    Word:  { icon: "📄" },
-    Excel: { icon: "📊" },
-    TTS:   { icon: "🎙️" }
+    Image: { icon: "🖼️", desc: "图像处理工具" },
+    Word:  { icon: "📄", desc: "Word 文档处理工具" },
+    Excel: { icon: "📊", desc: "Excel 表格处理工具" },
+    TTS:   { icon: "🎙️", desc: "离线语音合成工具" }
 };
 
 const slug = s => String(s).toLowerCase().replace(/\s+/g, '-').replace(/[^\w一-龥-]/g, '');
@@ -261,11 +263,11 @@ themeToggle.addEventListener('click', () => {
 function applyFilter() {
     const q = searchInput.value.trim().toLowerCase();
     let anyVisible = false;
-    document.querySelectorAll('.cat-section').forEach(sec => {
+    document.querySelectorAll('.cat-panel').forEach(sec => {
         let shown = 0;
-        sec.querySelectorAll('.tool-card').forEach(card => {
-            const hit = !q || card.textContent.toLowerCase().includes(q);
-            card.style.display = hit ? '' : 'none';
+        sec.querySelectorAll('.tool-item').forEach(item => {
+            const hit = !q || item.textContent.toLowerCase().includes(q);
+            item.style.display = hit ? '' : 'none';
             if (hit) shown++;
         });
         sec.style.display = shown ? '' : 'none';
@@ -275,7 +277,7 @@ function applyFilter() {
 }
 searchInput.addEventListener('input', applyFilter);
 
-// ── 渲染：分类分区 + 左侧导航 ──
+// ── 渲染：分类大卡 + 左侧导航 ──
 function render() {
     const cats = [];
     TOOLS.forEach(t => {
@@ -285,50 +287,30 @@ function render() {
         c.tools.push(t);
     });
 
-    document.getElementById('cat-nav').innerHTML = cats.map((c, i) =>
-        `<a class="nav-item${i === 0 ? ' active' : ''}" href="#cat-${slug(c.name)}">` +
-            `<span class="nav-txt">${(CATEGORY_META[c.name] || { icon: '📦' }).icon}<span>${c.name}</span></span>` +
-            `<span class="nav-count">${c.tools.length}</span>` +
-        `</a>`
-    ).join('');
-
     document.getElementById('sections').innerHTML = cats.map(c => {
-        const icon = (CATEGORY_META[c.name] || { icon: '📦' }).icon;
-        const cards = c.tools.map(t =>
-            `<a class="tool-card" data-search="${(t.name + ' ' + (t.desc || '') + ' ' + c.name).toLowerCase()}" href="${t.path}">` +
-                `<div class="tool-category">${c.name}</div>` +
-                `<div class="tool-name">${t.name}</div>` +
-                `<div class="tool-desc">${t.desc || ''}</div>` +
+        const meta = CATEGORY_META[c.name] || { icon: '📦', desc: '' };
+        const items = c.tools.map(t =>
+            `<a class="tool-item" href="${t.path}">` +
+                `<div class="ti-txt">` +
+                    `<div class="ti-name">${t.name}</div>` +
+                    `<div class="ti-desc">${t.desc || ''}</div>` +
+                `</div>` +
+                `<span class="ti-arrow">›</span>` +
             `</a>`
         ).join('');
-        return `<section class="cat-section" id="cat-${slug(c.name)}">` +
-            `<div class="cat-head">` +
-                `<h2 class="cat-title">${icon}<span>${c.name}</span></h2>` +
-                `<div class="cat-line"></div>` +
-                `<span class="cat-count">${c.tools.length} 个工具</span>` +
+        return `<section class="cat-panel" id="cat-${slug(c.name)}">` +
+            `<div class="cat-hd">` +
+                `<div class="ico">${meta.icon}</div>` +
+                `<div class="hdtext">` +
+                    `<h2 class="cat-title">${c.name}</h2>` +
+                    `<p class="cat-desc">${meta.desc}</p>` +
+                `</div>` +
             `</div>` +
-            `<div class="tools">${cards}</div>` +
+            `<div class="tool-list">${items}</div>` +
         `</section>`;
     }).join('');
 
-    initScrollSpy();
     applyFilter();
-}
-
-// ── 滚动监听：高亮当前可见分类 ──
-function initScrollSpy() {
-    const sections = Array.from(document.querySelectorAll('.cat-section'));
-    const navItems = Array.from(document.querySelectorAll('.nav-item'));
-    const setActive = id => {
-        navItems.forEach(n => n.classList.toggle('active', n.getAttribute('href') === '#' + id));
-    };
-    navItems.forEach(n => n.addEventListener('click', () => setActive(n.getAttribute('href').slice(1))));
-
-    if (!('IntersectionObserver' in window)) return;
-    const spy = new IntersectionObserver(entries => {
-        entries.forEach(e => { if (e.isIntersecting) setActive(e.target.id); });
-    }, { rootMargin: '-15% 0px -75% 0px', threshold: 0 });
-    sections.forEach(s => spy.observe(s));
 }
 
 // 先立即渲染内置数据；有服务时再用 tools.json 覆盖刷新
