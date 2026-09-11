@@ -22,5 +22,11 @@
         "desc": "自动生成工作表目录页，超链接跳转，纯浏览器处理",
         "category": "Excel",
         "path": "excel/excel-add-toc/"
+    },
+    {
+        "name": "TTS 文本转语音",
+        "desc": "离线语音合成，输入文字生成 WAV 音频，需启动 Python 服务",
+        "category": "TTS",
+        "path": "tts/"
     }
 ]

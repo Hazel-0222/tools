@@ -1,115 +1,347 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tools - 在线工具合集</title>
-    <style>
-        :root {
-            --bg: #f5f5f7;
-            --card-bg: #ffffff;
-            --text: #1d1d1f;
-            --text-secondary: #6e6e73;
-            --border: #d2d2d7;
-            --primary: #0071e3;
-            --shadow: 0 1px 3px rgba(0,0,0,0.08);
-            --shadow-hover: 0 8px 24px rgba(0,0,0,0.12);
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>Tools - 在线工具合集</title>
+<script>
+// 主题预载（防闪烁）：优先记忆值，否则跟随系统
+(function () {
+    try {
+        var t = localStorage.getItem('ui-theme');
+        if (t !== 'light' && t !== 'dark') {
+            t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            padding: 60px 20px;
-        }
-        .container { max-width: 800px; width: 100%; }
-        h1 {
-            font-size: 40px;
-            font-weight: 700;
-            letter-spacing: -0.5px;
-            margin-bottom: 8px;
-        }
-        .subtitle {
-            color: var(--text-secondary);
-            font-size: 18px;
-            margin-bottom: 48px;
-        }
-        .tools {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-            gap: 20px;
-        }
-        .tool-card {
-            background: var(--card-bg);
-            border-radius: 16px;
-            padding: 28px 24px;
-            text-decoration: none;
-            color: var(--text);
-            box-shadow: var(--shadow);
-            transition: transform 0.2s, box-shadow 0.2s;
-            border: 1px solid var(--border);
-        }
-        .tool-card:hover {
-            transform: translateY(-3px);
-            box-shadow: var(--shadow-hover);
-        }
-        .tool-icon {
-            font-size: 32px;
-            margin-bottom: 16px;
-        }
-        .tool-name {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 6px;
-        }
-        .tool-desc {
-            font-size: 14px;
-            color: var(--text-secondary);
-            line-height: 1.5;
-        }
-        .tool-category {
-            font-size: 12px;
-            color: var(--primary);
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 8px;
-        }
-    </style>
+        document.documentElement.setAttribute('data-theme', t);
+    } catch (e) {}
+})();
+</script>
+<style>
+:root {
+    /* ── 浅色主题 Token ── */
+    --bg: #f2f3fc;
+    --page-bg-image:
+        radial-gradient(900px 520px at 10% -10%, rgba(0,113,227,.10), transparent 60%),
+        radial-gradient(760px 480px at 90% 0%, rgba(122,92,255,.09), transparent 60%),
+        radial-gradient(840px 560px at 50% 108%, rgba(255,154,186,.08), transparent 60%),
+        linear-gradient(165deg, #eef2fb 0%, #f4effb 55%, #fbf2f5 100%);
+    --card-bg: #ffffff;
+    --input-bg: rgba(255,255,255,0.85);
+    --text: #1d1d1f;
+    --text-secondary: #6e6e73;
+    --border: #e2e2e7;
+    --primary: #0071e3;
+    --primary-soft: #e8f2fe;
+    --hover-bg: rgba(0,0,0,0.045);
+    --chip-bg: rgba(0,0,0,0.05);
+    --chip-active-bg: rgba(0,113,227,0.12);
+    --shadow: 0 1px 3px rgba(0,0,0,0.06);
+    --shadow-hover: 0 8px 24px rgba(0,0,0,0.12);
+}
+[data-theme="dark"] {
+    /* ── 深色主题 Token ── */
+    --bg: #0f1015;
+    --page-bg-image:
+        radial-gradient(900px 520px at 10% -10%, rgba(80,140,255,.13), transparent 60%),
+        radial-gradient(760px 480px at 90% 0%, rgba(139,124,255,.10), transparent 60%),
+        radial-gradient(840px 560px at 50% 108%, rgba(255,140,180,.06), transparent 60%),
+        linear-gradient(165deg, #131420 0%, #101018 55%, #180f1d 100%);
+    --card-bg: #1a1b22;
+    --input-bg: #14151c;
+    --text: #ededf1;
+    --text-secondary: #9a9ba5;
+    --border: #2a2b33;
+    --primary: #5ea2f5;
+    --primary-soft: rgba(94,162,245,0.16);
+    --hover-bg: rgba(255,255,255,0.06);
+    --chip-bg: rgba(255,255,255,0.08);
+    --chip-active-bg: rgba(94,162,245,0.18);
+    --shadow: 0 1px 2px rgba(0,0,0,0.5);
+    --shadow-hover: 0 8px 24px rgba(0,0,0,0.5);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: var(--bg);
+    background-image: var(--page-bg-image);
+    background-attachment: fixed;
+    color: var(--text);
+    min-height: 100vh;
+    padding: 44px 24px 80px;
+    transition: background-color 0.3s, color 0.3s;
+}
+.container { max-width: 1060px; margin: 0 auto; }
+
+/* ── 顶部：标题 + 搜索 + 主题切换 ── */
+.hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+h1 { font-size: 40px; font-weight: 700; letter-spacing: -0.5px; }
+.subtitle { color: var(--text-secondary); font-size: 17px; margin-top: 8px; }
+.hero-actions { display: flex; align-items: center; gap: 10px; }
+.search {
+    display: flex; align-items: center; gap: 8px;
+    width: 260px; height: 38px;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0 14px;
+    color: var(--text-secondary);
+}
+.search:focus-within { border-color: var(--primary); }
+.search input {
+    flex: 1; min-width: 0;
+    border: none; outline: none; background: transparent;
+    font: inherit; font-size: 14px; color: var(--text);
+}
+.search input::placeholder { color: var(--text-secondary); }
+.theme-toggle {
+    width: 38px; height: 38px; flex-shrink: 0;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--input-bg);
+    font-size: 16px; cursor: pointer;
+    transition: transform 0.15s, border-color 0.15s;
+}
+.theme-toggle:hover { transform: scale(1.08); }
+
+/* ── 双栏布局：左导航 + 右内容 ── */
+.main {
+    display: grid;
+    grid-template-columns: 196px 1fr;
+    gap: 48px;
+    margin-top: 36px;
+    align-items: start;
+}
+.content-col { min-width: 0; }
+
+/* ── 左侧分类导航（滚动时固定） ── */
+.sidebar { position: sticky; top: 36px; }
+.sidebar-label {
+    font-size: 12px; font-weight: 600; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--text-secondary);
+    margin-bottom: 12px;
+}
+.nav { display: flex; flex-direction: column; gap: 2px; }
+.nav-item {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px; padding: 9px 12px; border-radius: 10px;
+    text-decoration: none; color: var(--text-secondary);
+    font-size: 14px; font-weight: 500;
+    transition: background 0.15s, color 0.15s;
+}
+.nav-item:hover { background: var(--hover-bg); color: var(--text); }
+.nav-item.active { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+.nav-item .nav-txt { display: flex; align-items: center; gap: 8px; }
+.nav-count {
+    font-size: 11px; font-weight: 600; color: var(--text-secondary);
+    background: var(--chip-bg); border-radius: 999px; padding: 1px 7px;
+}
+.nav-item.active .nav-count { background: var(--chip-active-bg); color: var(--primary); }
+
+/* ── 右侧分类区块：标题 + 渐隐分隔线 ── */
+.cat-section { scroll-margin-top: 28px; margin-bottom: 44px; }
+.cat-head { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+.cat-title { font-size: 21px; font-weight: 700; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.cat-line {
+    flex: 1; height: 1px; min-width: 24px;
+    background: linear-gradient(to right, var(--border), transparent);
+}
+.cat-count { font-size: 13px; color: var(--text-secondary); font-weight: 500; white-space: nowrap; }
+.tools { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
+.tool-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    text-decoration: none;
+    color: var(--text);
+    box-shadow: var(--shadow);
+    transition: transform 0.2s, box-shadow 0.2s, background-color 0.2s;
+}
+.tool-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); }
+.tool-category { font-size: 11px; color: var(--primary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; }
+.tool-name { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+.tool-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+
+/* ── 无搜索结果空态 ── */
+.empty-state {
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 56px 0 40px;
+    font-size: 15px;
+}
+
+/* ── 移动端：导航变横排 ── */
+@media (max-width: 860px) {
+    body { padding: 32px 18px 64px; }
+    h1 { font-size: 32px; }
+    .hero-actions { width: 100%; }
+    .search { flex: 1; width: auto; min-width: 0; }
+    .main { grid-template-columns: 1fr; gap: 28px; margin-top: 28px; }
+    .sidebar { position: static; }
+    .sidebar-label { display: none; }
+    .nav { flex-direction: row; overflow-x: auto; padding-bottom: 6px; gap: 6px; }
+    .nav-item { white-space: nowrap; }
+    .nav-count { display: none; }
+}
+</style>
 </head>
 <body>
-    <div class="container">
-        <h1>🛠️ Tools</h1>
-        <p class="subtitle">纯浏览器端工具合集，无需安装，打开即用</p>
-        <div class="tools">
-            <a class="tool-card" href="word/word-extract-images/">
-                <div class="tool-icon">📄</div>
-                <div class="tool-category">Word</div>
-                <div class="tool-name">提取图片</div>
-                <div class="tool-desc">从 Word 文档中提取所有嵌入的图片</div>
-            </a>
-            <a class="tool-card" href="word/word-diff/">
-                <div class="tool-icon">🔍</div>
-                <div class="tool-category">Word</div>
-                <div class="tool-name">差异对比</div>
-                <div class="tool-desc">对比两个 Word 文档的差异，支持导出报告</div>
-            </a>
-            <a class="tool-card" href="excel/excel-add-toc/">
-                <div class="tool-icon">📊</div>
-                <div class="tool-category">Excel</div>
-                <div class="tool-name">添加目录页</div>
-                <div class="tool-desc">为 Excel 工作簿自动生成目录页</div>
-            </a>
-            <a class="tool-card" href="image/image-stitch/">
-                <div class="tool-icon">🖼️</div>
-                <div class="tool-category">Image</div>
-                <div class="tool-name">图片拼接</div>
-                <div class="tool-desc">多张图片自由拼接合成</div>
-            </a>
+<div class="container">
+    <header class="hero">
+        <div>
+            <h1>🛠️ Tools</h1>
+            <p class="subtitle">纯浏览器端工具合集，无需安装，打开即用</p>
+        </div>
+        <div class="hero-actions">
+            <div class="search" role="search">
+                <span>🔍</span>
+                <input id="search-input" type="search" placeholder="搜索工具…" autocomplete="off" aria-label="搜索工具">
+            </div>
+            <button id="theme-toggle" class="theme-toggle" type="button" aria-label="切换明暗模式">🌙</button>
+        </div>
+    </header>
+
+    <div class="main">
+        <aside class="sidebar">
+            <div class="sidebar-label">目录</div>
+            <nav id="cat-nav" class="nav"></nav>
+        </aside>
+        <div class="content-col">
+            <main id="sections"></main>
+            <div id="empty-state" class="empty-state" hidden>🔍 未找到匹配的工具</div>
         </div>
     </div>
+</div>
+
+<script>
+// ── 工具数据（与 tools.json 保持一致；file:// 直开时作为兜底） ──
+const TOOLS = [
+    { "name": "图片拼接", "desc": "网格拼接、长图合成，支持粘贴截图，纯浏览器处理", "category": "Image", "path": "image/image-stitch/" },
+    { "name": "Word 图片提取", "desc": "从 .docx 文件中提取所有图片，按文档顺序排列", "category": "Word", "path": "word/word-extract-images/" },
+    { "name": "Word 差异对比", "desc": "对比两个 .docx 文档差异，段落级比对，支持导出报告", "category": "Word", "path": "word/word-diff/" },
+    { "name": "Excel 目录生成", "desc": "自动生成工作表目录页，超链接跳转，纯浏览器处理", "category": "Excel", "path": "excel/excel-add-toc/" },
+    { "name": "TTS 文本转语音", "desc": "离线语音合成，输入文字生成 WAV 音频，需启动 Python 服务", "category": "TTS", "path": "tts/" }
+];
+
+// 分类元信息（图标等）
+const CATEGORY_META = {
+    Image: { icon: "🖼️" },
+    Word:  { icon: "📄" },
+    Excel: { icon: "📊" },
+    TTS:   { icon: "🎙️" }
+};
+
+const slug = s => String(s).toLowerCase().replace(/\s+/g, '-').replace(/[^\w一-龥-]/g, '');
+const searchInput = document.getElementById('search-input');
+const emptyState = document.getElementById('empty-state');
+
+// ── 主题切换 ──
+const themeToggle = document.getElementById('theme-toggle');
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    themeToggle.textContent = theme === 'dark' ? '☀️' : '🌙';
+}
+applyTheme(document.documentElement.getAttribute('data-theme') || 'light');
+themeToggle.addEventListener('click', () => {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const next = isDark ? 'light' : 'dark';
+    try { localStorage.setItem('ui-theme', next); } catch (e) {}
+    applyTheme(next);
+});
+
+// ── 搜索过滤（名称/描述/分类，大小写不敏感，实时） ──
+function applyFilter() {
+    const q = searchInput.value.trim().toLowerCase();
+    let anyVisible = false;
+    document.querySelectorAll('.cat-section').forEach(sec => {
+        let shown = 0;
+        sec.querySelectorAll('.tool-card').forEach(card => {
+            const hit = !q || card.textContent.toLowerCase().includes(q);
+            card.style.display = hit ? '' : 'none';
+            if (hit) shown++;
+        });
+        sec.style.display = shown ? '' : 'none';
+        if (shown) anyVisible = true;
+    });
+    emptyState.hidden = q ? anyVisible : true;
+}
+searchInput.addEventListener('input', applyFilter);
+
+// ── 渲染：分类分区 + 左侧导航 ──
+function render() {
+    const cats = [];
+    TOOLS.forEach(t => {
+        t.category = t.category || '其他';
+        let c = cats.find(x => x.name === t.category);
+        if (!c) { c = { name: t.category, tools: [] }; cats.push(c); }
+        c.tools.push(t);
+    });
+
+    document.getElementById('cat-nav').innerHTML = cats.map((c, i) =>
+        `<a class="nav-item${i === 0 ? ' active' : ''}" href="#cat-${slug(c.name)}">` +
+            `<span class="nav-txt">${(CATEGORY_META[c.name] || { icon: '📦' }).icon}<span>${c.name}</span></span>` +
+            `<span class="nav-count">${c.tools.length}</span>` +
+        `</a>`
+    ).join('');
+
+    document.getElementById('sections').innerHTML = cats.map(c => {
+        const icon = (CATEGORY_META[c.name] || { icon: '📦' }).icon;
+        const cards = c.tools.map(t =>
+            `<a class="tool-card" data-search="${(t.name + ' ' + (t.desc || '') + ' ' + c.name).toLowerCase()}" href="${t.path}">` +
+                `<div class="tool-category">${c.name}</div>` +
+                `<div class="tool-name">${t.name}</div>` +
+                `<div class="tool-desc">${t.desc || ''}</div>` +
+            `</a>`
+        ).join('');
+        return `<section class="cat-section" id="cat-${slug(c.name)}">` +
+            `<div class="cat-head">` +
+                `<h2 class="cat-title">${icon}<span>${c.name}</span></h2>` +
+                `<div class="cat-line"></div>` +
+                `<span class="cat-count">${c.tools.length} 个工具</span>` +
+            `</div>` +
+            `<div class="tools">${cards}</div>` +
+        `</section>`;
+    }).join('');
+
+    initScrollSpy();
+    applyFilter();
+}
+
+// ── 滚动监听：高亮当前可见分类 ──
+function initScrollSpy() {
+    const sections = Array.from(document.querySelectorAll('.cat-section'));
+    const navItems = Array.from(document.querySelectorAll('.nav-item'));
+    const setActive = id => {
+        navItems.forEach(n => n.classList.toggle('active', n.getAttribute('href') === '#' + id));
+    };
+    navItems.forEach(n => n.addEventListener('click', () => setActive(n.getAttribute('href').slice(1))));
+
+    if (!('IntersectionObserver' in window)) return;
+    const spy = new IntersectionObserver(entries => {
+        entries.forEach(e => { if (e.isIntersecting) setActive(e.target.id); });
+    }, { rootMargin: '-15% 0px -75% 0px', threshold: 0 });
+    sections.forEach(s => spy.observe(s));
+}
+
+// 先立即渲染内置数据；有服务时再用 tools.json 覆盖刷新
+render();
+fetch('tools.json')
+    .then(r => { if (!r.ok) throw new Error('tools.json 不可用'); return r.json(); })
+    .then(data => {
+        if (Array.isArray(data) && data.length) {
+            TOOLS.splice(0, TOOLS.length, ...data);
+            render();
+        }
+    })
+    .catch(() => {});
+</script>
 </body>
 </html>
