@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<script>
+// 主题预载（防闪烁）：与首页共用 localStorage['ui-theme']
+(function () {
+    try {
+        var t = localStorage.getItem('ui-theme');
+        if (t !== 'light' && t !== 'dark') {
+            t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', t);
+    } catch (e) {}
+})();
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>取色器 · 图片主色 Top5</title>
+<style>
+:root {
+    /* ── 与工具合集统一的设计 Token ── */
+    --bg: #eef0fb;
+    --page-bg-image:
+        radial-gradient(900px 520px at 10% -10%, rgba(0,113,227,.145), transparent 60%),
+        radial-gradient(760px 480px at 90% 0%, rgba(122,92,255,.125), transparent 60%),
+        radial-gradient(840px 560px at 50% 108%, rgba(255,154,186,.105), transparent 60%),
+        linear-gradient(165deg, #e7ecfb 0%, #eee9fc 55%, #f6ecf2 100%);
+    --card-bg: #ffffff;
+    --input-bg: rgba(255,255,255,0.85);
+    --text: #1d1d1f;
+    --text-secondary: #6e6e73;
+    --border: #e2e2e7;
+    --primary: #0071e3;
+    --primary-soft: #e8f2fe;
+    --focus-ring: rgba(0,113,227,0.22);
+    --hover-bg: rgba(0,0,0,0.045);
+    --btn-bg: #0071e3;
+    --btn-fg: #ffffff;
+    --btn2-bg: #e5e5ea;
+    --btn2-fg: #1d1d1f;
+    --btn-shadow:
+        0 1px 2px rgba(0,0,0,0.14),
+        0 3px 10px -1px rgba(13,25,60,0.16);
+    --btn-shadow-hover:
+        0 2px 4px rgba(0,0,0,0.16),
+        0 6px 18px -2px rgba(13,25,60,0.24);
+    --log-info: #0071e3;
+    --log-success: #1a7f37;
+    --log-error: #d93025;
+    --log-warn: #9a6700;
+    --hd-veil: rgba(255,255,255,0.65);
+    --panel-shadow:
+        0 2px 8px rgba(13,25,60,0.04),
+        0 24px 56px -16px rgba(13,25,60,0.14);
+    --shadow: 0 1px 3px rgba(0,0,0,0.06);
+    --shadow-hover: 0 8px 24px rgba(0,0,0,0.12);
+    --mono: "Cascadia Code", "Fira Code", "Consolas", "Courier New", monospace;
+}
+[data-theme="dark"] {
+    --bg: #0f1016;
+    --page-bg-image:
+        radial-gradient(900px 520px at 10% -10%, rgba(80,140,255,.13), transparent 60%),
+        radial-gradient(760px 480px at 90% 0%, rgba(139,124,255,.10), transparent 60%),
+        radial-gradient(840px 560px at 50% 108%, rgba(255,140,180,.06), transparent 60%),
+        linear-gradient(165deg, #12131f 0%, #0f0f1a 55%, #150f1b 100%);
+    --card-bg: #1a1b22;
+    --input-bg: #14151c;
+    --text: #ededf1;
+    --text-secondary: #9a9ba5;
+    --border: #2a2b33;
+    --primary: #5ea2f5;
+    --primary-soft: rgba(94,162,245,0.16);
+    --focus-ring: rgba(94,162,245,0.30);
+    --hover-bg: rgba(255,255,255,0.06);
+    --btn-bg: #5ea2f5;
+    --btn-fg: #1d1d1f;
+    --btn2-bg: rgba(229,229,234,0.14);
+    --btn2-fg: #ededf1;
+    --btn-shadow:
+        0 1px 2px rgba(0,0,0,0.4),
+        0 4px 14px -2px rgba(0,0,0,0.5);
+    --btn-shadow-hover:
+        0 2px 4px rgba(0,0,0,0.45),
+        0 8px 22px -2px rgba(0,0,0,0.6);
+    --log-info: #4fc3f7;
+    --log-success: #81c784;
+    --log-error: #ef5350;
+    --log-warn: #ffb74d;
+    --hd-veil: rgba(255,255,255,0.05);
+    --panel-shadow:
+        0 8px 20px rgba(0,0,0,0.34),
+        0 32px 64px -16px rgba(0,0,0,0.42);
+    --shadow: 0 1px 2px rgba(0,0,0,0.5);
+    --shadow-hover: 0 8px 24px rgba(0,0,0,0.5);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: var(--bg);
+    background-image: var(--page-bg-image);
+    background-attachment: fixed;
+    background-color: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 36px 20px 60px;
+    transition: background-color 0.3s, color 0.3s;
+}
+.page { max-width: 720px; margin: 0 auto; }
+
+/* ── 顶栏 ── */
+.topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.back-link { color: var(--text-secondary); text-decoration: none; font-size: 14px; font-weight: 500; padding: 6px 10px 6px 0; transition: color 0.15s; }
+.back-link:hover { color: var(--primary); }
+.theme-toggle {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--input-bg);
+    font-size: 16px; cursor: pointer;
+    transition: transform 0.15s, border-color 0.15s;
+}
+.theme-toggle:hover { transform: scale(1.08); }
+
+/* ── 面板 ── */
+.panel {
+    --panel-pad: 32px;
+    --panel-r: 18px;
+    background: var(--card-bg);
+    border-radius: 18px;
+    box-shadow: var(--panel-shadow);
+    padding: var(--panel-pad);
+}
+.panel .hd { display: flex; align-items: center; gap: 12px; position: relative; z-index: 0; padding-bottom: 14px; margin-bottom: 18px; }
+.panel .hd::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    top: calc(-1 * var(--panel-pad));
+    left: calc(-1 * var(--panel-pad));
+    right: calc(-1 * var(--panel-pad));
+    bottom: 0;
+    background:
+        linear-gradient(var(--hd-veil), var(--hd-veil)),
+        var(--page-bg-image);
+    border-radius: var(--panel-r) var(--panel-r) 0 0;
+}
+.panel .hd .ico { font-size: 34px; line-height: 1; flex-shrink: 0; }
+.panel .hd .hdtext { min-width: 0; }
+.panel h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.3px; }
+.panel .subtitle { color: var(--text-secondary); font-size: 13px; margin-top: 3px; line-height: 1.55; }
+
+/* ── 拖拽区 ── */
+.drop-zone {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    border: 1.5px dashed var(--border);
+    border-radius: 14px;
+    padding: 20px 22px;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s;
+    background: var(--input-bg);
+    margin-bottom: 12px;
+    user-select: none;
+}
+.drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--primary);
+    background: var(--primary-soft);
+    box-shadow: 0 0 0 4px var(--focus-ring);
+}
+.drop-zone .icon { font-size: 36px; line-height: 1; flex-shrink: 0; }
+.drop-zone .dtxt { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.drop-zone .title { font-size: 14px; font-weight: 500; }
+.drop-zone .hint { font-size: 12px; color: var(--text-secondary); }
+
+/* ── 粘贴提示 ── */
+.paste-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--primary-soft);
+    border: 1px solid var(--focus-ring);
+    border-radius: 12px;
+    padding: 10px 16px;
+    font-size: 13px;
+    margin-bottom: 12px;
+    color: var(--text);
+}
+.paste-banner .psb-icon { font-size: 20px; line-height: 1; }
+
+/* ── 图像显示区 ── */
+.canvas-wrap {
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 8px;
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: center;
+    min-height: 120px;
+    transition: border-color 0.2s;
+}
+.canvas-wrap.has-img { border-color: var(--primary); }
+#imageCanvas {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    cursor: crosshair;
+    background: #fefefe;
+}
+
+/* ── 实时取色条 ── */
+.picker-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    font-family: var(--mono);
+    font-size: 13px;
+}
+.picker-bar .pb-swatch {
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: conic-gradient(#e2e2e7 25%, transparent 0 50%, #e2e2e7 0 75%, transparent 0);
+    flex-shrink: 0;
+}
+.picker-bar .pb-hex { font-weight: 600; color: var(--text); }
+.picker-bar .pb-rgb { color: var(--text-secondary); }
+.picker-bar .pb-hint { margin-left: auto; font-family: inherit; font-size: 12px; color: var(--text-secondary); }
+
+/* ── Top5 颜色列表 ── */
+.section-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    margin: 0 0 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.color-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.color-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-family: var(--mono);
+    transition: border-color 0.15s, background 0.15s;
+}
+.color-item:hover { border-color: var(--primary); background: var(--primary-soft); }
+.color-item .swatch { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--border); flex-shrink: 0; }
+.color-item .ci-main { font-size: 13px; font-weight: 600; color: var(--text); }
+.color-item .ci-sub { font-size: 12px; color: var(--text-secondary); }
+.color-item .ci-pct { margin-left: auto; font-size: 13px; font-weight: 600; color: var(--text); flex-shrink: 0; }
+.color-item .ci-num { font-size: 12px; color: var(--text-secondary); width: 22px; flex-shrink: 0; text-align: center; }
+
+/* ── 按钮 ── */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 9px 18px;
+    border: none;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    box-shadow: var(--btn-shadow);
+    transition: background-color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.1s;
+    white-space: nowrap;
+}
+.btn:active { transform: scale(0.97); }
+.btn-primary { background: var(--btn-bg); color: var(--btn-fg); }
+.btn-primary:hover:not(:disabled) { box-shadow: var(--btn-shadow-hover); }
+.btn-primary:disabled { background: var(--border); color: var(--text-secondary); cursor: not-allowed; box-shadow: none; }
+.btn-outline { background: var(--btn2-bg); color: var(--btn2-fg); }
+.btn-outline:hover:not(:disabled) { background: linear-gradient(var(--hover-bg), var(--hover-bg)), var(--btn2-bg); box-shadow: var(--btn-shadow-hover); }
+.btn-row { display: flex; gap: 10px; margin-top: 2px; }
+.btn-row .btn { flex: 1; }
+
+/* ── 日志 ── */
+.log-area {
+    background: var(--input-bg);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.6;
+    max-height: 180px;
+    overflow-y: auto;
+    margin-top: 14px;
+    min-height: 40px;
+    border: 1px solid var(--border);
+}
+.log-area:empty::after { content: "等待操作…"; color: var(--text-secondary); }
+.log-line { margin: 0; }
+.log-line.info { color: var(--log-info); }
+.log-line.success { color: var(--log-success); }
+.log-line.error { color: var(--log-error); }
+.log-line.warn { color: var(--log-warn); }
+
+/* ── 页脚 ── */
+.footer { text-align: center; margin-top: 16px; font-size: 12px; color: var(--text-secondary); line-height: 1.6; }
+
+.hidden { display: none !important; }
+
+/* ── 响应式 ── */
+@media (max-width: 560px) {
+    body { padding: 24px 14px 44px; }
+    .panel { --panel-pad: 20px; --panel-r: 14px; }
+    .picker-bar { flex-wrap: wrap; }
+    .picker-bar .pb-hint { margin-left: 0; width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<div class="page">
+    <div class="topbar">
+        <a class="back-link" href="../../index.html">← 返回工具集</a>
+        <button class="theme-toggle" id="themeBtn" type="button" aria-label="切换明暗模式">🌙</button>
+    </div>
+
+    <div class="panel">
+        <div class="hd">
+            <div class="ico">🎨</div>
+            <div class="hdtext">
+                <h1>取色器 · 图片主色 Top5</h1>
+                <p class="subtitle">粘贴或拖拽图片，自动统计占比前五的主色；点击图像任意像素可读取该点色值</p>
+            </div>
+        </div>
+
+        <!-- 上传 -->
+        <div id="dropzone" class="drop-zone">
+            <div class="icon">🖼️</div>
+            <div class="dtxt">
+                <div class="title">点击或拖拽图片到此区域</div>
+                <div class="hint">支持 JPG、PNG、WebP、BMP、GIF</div>
+            </div>
+            <input type="file" id="fileInput" accept="image/*" class="hidden">
+        </div>
+
+        <div class="paste-banner"><span class="psb-icon">📋</span> 在页面任意位置按 Ctrl+V 粘贴截图 / 复制的图片</div>
+
+        <!-- 图像显示 -->
+        <div class="canvas-wrap" id="canvasWrap">
+            <canvas id="imageCanvas" width="0" height="0" hidden></canvas>
+        </div>
+
+        <!-- 取色条 -->
+        <div class="picker-bar" id="pickerBar">
+            <span class="pb-swatch" id="pbSwatch"></span>
+            <span class="pb-hex" id="pbHex">-</span>
+            <span class="pb-rgb" id="pbRgb">-</span>
+            <span class="pb-hint">在图像上移动鼠标取色 · 点击像素复制</span>
+        </div>
+
+        <!-- Top5 结果 -->
+        <div id="resultBlock" class="hidden">
+            <div class="section-title">📊 占比前五的颜色（点击复制）</div>
+            <div class="color-list" id="colorList"></div>
+        </div>
+
+        <!-- 操作 -->
+        <div class="btn-row">
+            <button id="btnAnalyze" class="btn btn-primary" disabled>分析颜色</button>
+            <button id="btnClear" class="btn btn-outline">清空图片</button>
+        </div>
+
+        <!-- 日志 -->
+        <div class="log-area" id="logArea"></div>
+
+        <div class="footer">图片全程在本地浏览器处理，不会上传服务器</div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const canvasWrap = document.getElementById('canvasWrap');
+    const canvas = document.getElementById('imageCanvas');
+    const ctx = canvas.getContext('2d');
+    const pickerBar = document.getElementById('pickerBar');
+    const pbSwatch = document.getElementById('pbSwatch');
+    const pbHex = document.getElementById('pbHex');
+    const pbRgb = document.getElementById('pbRgb');
+    const resultBlock = document.getElementById('resultBlock');
+    const colorList = document.getElementById('colorList');
+    const btnAnalyze = document.getElementById('btnAnalyze');
+    const btnClear = document.getElementById('btnClear');
+    const logArea = document.getElementById('logArea');
+    const themeBtn = document.getElementById('themeBtn');
+
+    // 原始图缓冲（全尺寸，白底合成），用于像素取色
+    const srcCanvas = document.createElement('canvas');
+    const srcCtx = srcCanvas.getContext('2d');
+    let srcW = 0, srcH = 0, imgReady = false;
+
+    // ── 明暗模式 ──
+    function applyTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        themeBtn.textContent = theme === 'dark' ? '☀️' : '🌙';
+    }
+    applyTheme(document.documentElement.getAttribute('data-theme') || 'light');
+    themeBtn.addEventListener('click', () => {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const next = isDark ? 'light' : 'dark';
+        try { localStorage.setItem('ui-theme', next); } catch (e) {}
+        applyTheme(next);
+    });
+
+    // ── 日志 ──
+    function addLog(msg, type) {
+        const time = new Date().toLocaleTimeString();
+        const p = document.createElement('p');
+        p.className = 'log-line ' + (type || 'info');
+        p.textContent = '[' + time + '] ' + msg;
+        logArea.appendChild(p);
+        logArea.scrollTop = logArea.scrollHeight;
+    }
+
+    // ── 工具函数 ──
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    function rgbToHex(r, g, b) {
+        return '#' + [r, g, b].map(v => clamp(Math.round(v), 0, 255).toString(16).padStart(2, '0')).join('').toUpperCase();
+    }
+    function hexToRgbText(r, g, b) { return 'rgb(' + clamp(Math.round(r), 0, 255) + ', ' + clamp(Math.round(g), 0, 255) + ', ' + clamp(Math.round(b), 0, 255) + ')'; }
+
+    // ── 加载图片 ──
+    function loadImage(file) {
+        if (!file || !file.type.startsWith('image/')) { addLog('请选择图片文件', 'error'); return; }
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+            srcW = img.naturalWidth; srcH = img.naturalHeight;
+            // 全尺寸缓冲：白底合成，透明区域显白，取色所见即所得
+            srcCanvas.width = srcW; srcCanvas.height = srcH;
+            srcCtx.fillStyle = '#ffffff';
+            srcCtx.fillRect(0, 0, srcW, srcH);
+            srcCtx.drawImage(img, 0, 0, srcW, srcH);
+            URL.revokeObjectURL(url);
+
+            // 显示画布：contain 到区域上限
+            const maxW = Math.min(canvasWrap.clientWidth - 16, 680);
+            const maxH = 440;
+            const scale = Math.max(1, Math.min(maxW / srcW, maxH / srcH));
+            canvas.width = Math.round(srcW * scale);
+            canvas.height = Math.round(srcH * scale);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(srcCanvas, 0, 0, canvas.width, canvas.height);
+
+            canvas.hidden = false;
+            canvasWrap.classList.add('has-img');
+            imgReady = true;
+            btnAnalyze.disabled = false;
+            addLog('已载入图片 ' + srcW + '×' + srcH + '，自动开始分析主色');
+            analyzeColors();
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); addLog('图片加载失败', 'error'); };
+        img.src = url;
+    }
+
+    // ── 主色分析：缩略图量化统计，取占比前五 ──
+    function analyzeColors() {
+        if (!imgReady) return;
+        const scale = Math.min(1, 180 / Math.max(srcW, srcH));
+        const cw = Math.max(1, Math.round(srcW * scale));
+        const ch = Math.max(1, Math.round(srcH * scale));
+        const t = document.createElement('canvas');
+        t.width = cw; t.height = ch;
+        const tc = t.getContext('2d');
+        tc.fillStyle = '#ffffff';
+        tc.fillRect(0, 0, cw, ch);
+        tc.drawImage(srcCanvas, 0, 0, cw, ch);
+        const data = tc.getImageData(0, 0, cw, ch).data;
+
+        const STEP = 24; // 颜色量化步长：相邻色归为一桶
+        const map = new Map();
+        for (let i = 0; i < data.length; i += 4) {
+            const r = data[i], g = data[i + 1], b = data[i + 2];
+            const key = (r >> 3 << 10) | (g >> 3 << 5) | (b >> 3);
+            let e = map.get(key);
+            if (!e) { e = { key, rSum: 0, gSum: 0, bSum: 0, count: 0 }; map.set(key, e); }
+            e.rSum += r; e.gSum += g; e.bSum += b; e.count++;
+        }
+        const total = (cw * ch) || 1;
+        const top = Array.from(map.values())
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 5)
+            .map(e => {
+                const r = e.rSum / e.count, g = e.gSum / e.count, b = e.bSum / e.count;
+                return {
+                    hex: rgbToHex(r, g, b),
+                    rgb: hexToRgbText(r, g, b),
+                    r: Math.round(r), g: Math.round(g), b: Math.round(b),
+                    pct: (e.count / total * 100)
+                };
+            });
+        renderTop5(top);
+        resultBlock.classList.remove('hidden');
+        addLog('统计完成：' + map.size + ' 个有效色块，占比前五已列出');
+    }
+
+    function renderTop5(list) {
+        colorList.innerHTML = list.map((c, i) =>
+            '<div class="color-item" data-hex="' + c.hex + '" data-rgb="' + c.rgb + '">' +
+                '<span class="ci-num">' + (i + 1) + '</span>' +
+                '<span class="swatch" style="background:' + c.hex + '"></span>' +
+                '<span class="ci-main">' + c.hex + '</span>' +
+                '<span class="ci-sub">' + c.rgb + '</span>' +
+                '<span class="ci-pct">' + c.pct.toFixed(1) + '%</span>' +
+            '</div>'
+        ).join('');
+    }
+
+    // ── 画布取色：坐标映射到原始像素 ──
+    function pixelAt(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        const dx = (clientX - rect.left) * (canvas.width / rect.width);
+        const dy = (clientY - rect.top) * (canvas.height / rect.height);
+        if (dx < 0 || dy < 0 || dx >= canvas.width || dy >= canvas.height) return null;
+        const ox = Math.min(Math.floor(dx * (srcW / canvas.width)), srcW - 1);
+        const oy = Math.min(Math.floor(dy * (srcH / canvas.height)), srcH - 1);
+        const d = srcCtx.getImageData(ox, oy, 1, 1).data;
+        return { r: d[0], g: d[1], b: d[2] };
+    }
+
+    function updatePicker(px) {
+        if (!px) return;
+        pbSwatch.style.background = 'rgb(' + px.r + ',' + px.g + ',' + px.b + ')';
+        pbHex.textContent = rgbToHex(px.r, px.g, px.b);
+        pbRgb.textContent = 'rgb(' + px.r + ', ' + px.g + ', ' + px.b + ')';
+    }
+
+    function copyText(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text);
+        } else {
+            const ta = document.createElement('textarea');
+            ta.value = text; document.body.appendChild(ta); ta.select();
+            try { document.execCommand('copy'); } catch (e) {}
+            document.body.removeChild(ta);
+        }
+    }
+
+    // canvas 事件（静态元素，只绑一次）
+    canvas.addEventListener('mousemove', e => updatePicker(pixelAt(e.clientX, e.clientY)));
+    canvas.addEventListener('click', e => {
+        const px = pixelAt(e.clientX, e.clientY);
+        if (!px) return;
+        const hex = rgbToHex(px.r, px.g, px.b);
+        copyText(hex);
+        addLog('已复制像素色值 ' + hex + '（rgb(' + px.r + ', ' + px.g + ', ' + px.b + '))', 'success');
+    });
+    canvas.addEventListener('mouseleave', () => {
+        pbSwatch.style.background = '';
+        pbHex.textContent = '-';
+        pbRgb.textContent = '-';
+    });
+
+    // 颜色行点击复制
+    colorList.addEventListener('click', e => {
+        const item = e.target.closest('.color-item');
+        if (!item) return;
+        copyText(item.dataset.hex);
+        addLog('已复制 ' + item.dataset.hex + ' ' + item.dataset.rgb, 'success');
+    });
+
+    // ── 上传交互 ──
+    dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+    dropzone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropzone.classList.remove('drag-over');
+        const f = e.dataTransfer.files[0];
+        if (f) loadImage(f); else addLog('未检测到图片文件', 'error');
+    });
+    dropzone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', e => {
+        if (e.target.files[0]) loadImage(e.target.files[0]);
+        fileInput.value = '';
+    });
+
+    // 粘贴（无需权限：从 paste 事件直接取文件）
+    document.addEventListener('paste', e => {
+        const files = e.clipboardData && e.clipboardData.files;
+        const f = files && files[0];
+        if (f && f.type.startsWith('image/')) { e.preventDefault(); loadImage(f); return; }
+        const items = e.clipboardData && e.clipboardData.items;
+        if (items) {
+            for (const it of items) {
+                if (it.type.startsWith('image/')) {
+                    e.preventDefault();
+                    loadImage(it.getAsFile());
+                    return;
+                }
+            }
+        }
+    });
+
+    btnAnalyze.addEventListener('click', analyzeColors);
+    btnClear.addEventListener('click', () => {
+        imgReady = false;
+        canvas.hidden = true;
+        canvasWrap.classList.remove('has-img');
+        canvas.width = 0; canvas.height = 0;
+        resultBlock.classList.add('hidden');
+        colorList.innerHTML = '';
+        btnAnalyze.disabled = true;
+        pbSwatch.style.background = '';
+        pbHex.textContent = '-';
+        pbRgb.textContent = '-';
+        addLog('已清空图片');
+    });
+
+    addLog('取色器就绪 · 支持拖拽 / 点击上传 / Ctrl+V 粘贴图片');
+})();
+</script>
+</body>
+</html>

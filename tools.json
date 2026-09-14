@@ -6,6 +6,12 @@
         "path": "image/image-stitch/"
     },
     {
+        "name": "取色器",
+        "desc": "粘贴或拖拽图片，统计占比前五的主色，点击像素读取色值",
+        "category": "Image",
+        "path": "image/color-picker/"
+    },
+    {
         "name": "Word 图片提取",
         "desc": "从 .docx 文件中提取所有图片，按文档顺序排列",
         "category": "Word",
