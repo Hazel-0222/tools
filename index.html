@@ -230,16 +230,14 @@ const TOOLS = [
     { "name": "取色器", "desc": "粘贴或拖拽图片，统计占比前五的主色，点击像素读取色值", "category": "Image", "path": "image/color-picker/" },
     { "name": "Word 图片提取", "desc": "从 .docx 文件中提取所有图片，按文档顺序排列", "category": "Word", "path": "word/word-extract-images/" },
     { "name": "Word 差异对比", "desc": "对比两个 .docx 文档差异，段落级比对，支持导出报告", "category": "Word", "path": "word/word-diff/" },
-    { "name": "Excel 目录生成", "desc": "自动生成工作表目录页，超链接跳转，纯浏览器处理", "category": "Excel", "path": "excel/excel-add-toc/" },
-    { "name": "TTS 文本转语音", "desc": "离线语音合成，输入文字生成 WAV 音频，需启动 Python 服务", "category": "TTS", "path": "tts/" }
+    { "name": "Excel 目录生成", "desc": "自动生成工作表目录页，超链接跳转，纯浏览器处理", "category": "Excel", "path": "excel/excel-add-toc/" }
 ];
 
 // 分类元信息（图标 + 卡片头说明）
 const CATEGORY_META = {
     Image: { icon: "🖼️", desc: "图像处理工具" },
     Word:  { icon: "📄", desc: "Word 文档处理工具" },
-    Excel: { icon: "📊", desc: "Excel 表格处理工具" },
-    TTS:   { icon: "🎙️", desc: "离线语音合成工具" }
+    Excel: { icon: "📊", desc: "Excel 表格处理工具" }
 };
 
 const slug = s => String(s).toLowerCase().replace(/\s+/g, '-').replace(/[^\w一-龥-]/g, '');

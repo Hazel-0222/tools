@@ -13,6 +13,8 @@
 !GITHUB_仓库结构说明.md
 !index.html
 __pycache__/
+# 未发布的本地工具：仅本机保留，永不推送
+markdown/
 SVN_MultiPatch_*/
 提高表达能力/
 新建文件夹/
