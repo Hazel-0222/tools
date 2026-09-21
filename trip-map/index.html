@@ -22,6 +22,9 @@
   .tp-pin span{transform:rotate(45deg);display:inline-block}
   .dst-pin{background:#d81b60;color:#fff;width:18px;height:18px;border-radius:50%;
            text-align:center;line-height:18px;font-size:10px;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+  .sec-head{margin:10px 0 4px;font-size:12px;color:#666;border-top:1px dashed #ccc;padding-top:8px}
+  .plc{font-size:12px}
+  .dot{width:10px;height:10px;border-radius:50%;flex:none;display:inline-block}
 </style>
 </head>
 <body>
@@ -38,7 +41,7 @@ window._AMapSecurityConfig = {"securityJsCode": "6b19052dfd1e81784533678002d742d
 </script>
 <script src="https://webapi.amap.com/maps?v=2.0&key=c0323f91c9287bff3e1c2f5a8569fef9"></script>
 <script>
-const trips = [{"page_id": "0bf3bdc7-4356-4e2f-9060-d78bf7dd4967", "page_no": 1, "no": 1, "origin": "南昌西站", "dest": "希岸酒店（南昌红谷滩铜锣湾）", "origin_lnglat": [115.792516, 28.624876], "dest_lnglat": [115.842914, 28.673874], "pts": [], "time": "2026-10-03 12:30", "transport": "", "voucher": ""}, {"page_id": "a78986b8-d65f-4221-9728-1f0348088620", "page_no": 2, "no": 2, "origin": "希岸酒店（南昌红谷滩铜锣湾）", "dest": "八一广场（南昌起义纪念塔）", "origin_lnglat": [115.842914, 28.673874], "dest_lnglat": [115.904305, 28.673905], "pts": [], "time": "2026-10-03 14:15", "transport": "", "voucher": ""}, {"page_id": "979e014e-995f-4ee1-9e9d-a48d4496cb53", "page_no": 3, "no": 3, "origin": "八一广场（南昌起义纪念塔）", "dest": "江西省美术馆", "origin_lnglat": [115.904305, 28.673905], "dest_lnglat": [115.902603, 28.673859], "pts": [], "time": "2026-10-03 18:30", "transport": "", "voucher": ""}, {"page_id": "3e2e167b-20da-8045-b936-f8117fcc76b4", "page_no": 4, "no": 4, "origin": "江西省美术馆", "dest": "万寿宫（小吃街）", "origin_lnglat": [115.902603, 28.673859], "dest_lnglat": [115.889582, 28.673438], "pts": [], "time": "2026-10-03 20:00", "transport": "", "voucher": ""}, {"page_id": "3e2e167b-20da-80da-86e4-f7df2872e521", "page_no": 5, "no": 5, "origin": "万寿宫（小吃街）", "dest": "秋水广场（看喷泉）", "origin_lnglat": [115.889582, 28.673438], "dest_lnglat": [115.859973, 28.681095], "pts": [], "time": "2026-10-03 21:15", "transport": "", "voucher": ""}, {"page_id": "3e2e167b-20da-80c4-b1fb-cf2632b24cb6", "page_no": 6, "no": 6, "origin": "秋水广场（看喷泉）", "dest": "摩天轮🎡", "origin_lnglat": [115.859973, 28.681095], "dest_lnglat": [115.850719, 28.656183], "pts": [], "time": "2026-10-04 17:30", "transport": "", "voucher": ""}, {"page_id": "e49c5f52-b893-4c5f-aada-01a6d1039e8c", "page_no": 7, "no": 7, "origin": "摩天轮🎡", "dest": "滕王阁", "origin_lnglat": [115.850719, 28.656183], "dest_lnglat": [115.881197, 28.681332], "pts": [], "time": "2026-10-04 18:45", "transport": "", "voucher": ""}, {"page_id": "3e2e167b-20da-809c-9ef8-ed6b948dd874", "page_no": 8, "no": 8, "origin": "滕王阁", "dest": "希岸酒店（南昌红谷滩铜锣湾）", "origin_lnglat": [115.881197, 28.681332], "dest_lnglat": [115.842914, 28.673874], "pts": [], "time": "2026-10-05 18:00", "transport": "", "voucher": ""}];
+const trips = [{"page_id": "3e2e167b-20da-80db-a06b-da31b6903614", "page_no": 1, "no": 1, "origin": "深圳启悦S酒店", "dest": "南昌西站", "origin_lnglat": [115.943987, 28.662324], "dest_lnglat": [115.792516, 28.624876], "pts": [], "time": "2026-10-02 22:00", "transport": "", "voucher": ""}, {"page_id": "0bf3bdc7-4356-4e2f-9060-d78bf7dd4967", "page_no": 2, "no": 2, "origin": "南昌西站", "dest": "希岸酒店（南昌红谷滩铜锣湾）", "origin_lnglat": [115.792516, 28.624876], "dest_lnglat": [115.842914, 28.673874], "pts": [], "time": "2026-10-03 12:30", "transport": "", "voucher": ""}, {"page_id": "a78986b8-d65f-4221-9728-1f0348088620", "page_no": 3, "no": 3, "origin": "希岸酒店（南昌红谷滩铜锣湾）", "dest": "八一广场（南昌起义纪念塔）", "origin_lnglat": [115.842914, 28.673874], "dest_lnglat": [115.904305, 28.673905], "pts": [], "time": "2026-10-03 14:15", "transport": "", "voucher": ""}, {"page_id": "979e014e-995f-4ee1-9e9d-a48d4496cb53", "page_no": 4, "no": 4, "origin": "八一广场（南昌起义纪念塔）", "dest": "江西省美术馆", "origin_lnglat": [115.904305, 28.673905], "dest_lnglat": [115.902603, 28.673859], "pts": [], "time": "2026-10-03 18:30", "transport": "", "voucher": ""}, {"page_id": "3e2e167b-20da-8045-b936-f8117fcc76b4", "page_no": 5, "no": 5, "origin": "江西省美术馆", "dest": "万寿宫（小吃街）", "origin_lnglat": [115.902603, 28.673859], "dest_lnglat": [115.889582, 28.673438], "pts": [], "time": "2026-10-03 20:00", "transport": "", "voucher": ""}, {"page_id": "3e2e167b-20da-80da-86e4-f7df2872e521", "page_no": 6, "no": 6, "origin": "万寿宫（小吃街）", "dest": "秋水广场（看喷泉）", "origin_lnglat": [115.889582, 28.673438], "dest_lnglat": [115.859973, 28.681095], "pts": [], "time": "2026-10-03 21:15", "transport": "", "voucher": ""}, {"page_id": "3e2e167b-20da-80c4-b1fb-cf2632b24cb6", "page_no": 7, "no": 7, "origin": "秋水广场（看喷泉）", "dest": "摩天轮🎡", "origin_lnglat": [115.859973, 28.681095], "dest_lnglat": [115.850719, 28.656183], "pts": [], "time": "2026-10-04 17:30", "transport": "", "voucher": ""}, {"page_id": "e49c5f52-b893-4c5f-aada-01a6d1039e8c", "page_no": 8, "no": 8, "origin": "摩天轮🎡", "dest": "希岸酒店（南昌红谷滩铜锣湾）", "origin_lnglat": [115.850719, 28.656183], "dest_lnglat": [115.842914, 28.673874], "pts": [], "time": "2026-10-04 18:45", "transport": "", "voucher": ""}, {"page_id": "3e2e167b-20da-8036-833d-cdb9a1054ca4", "page_no": 9, "no": 9, "origin": "希岸酒店（南昌红谷滩铜锣湾）", "dest": "滕王阁", "origin_lnglat": [115.842914, 28.673874], "dest_lnglat": [115.881197, 28.681332], "pts": [], "time": "2026-10-04 21:30", "transport": "", "voucher": ""}, {"page_id": "3e2e167b-20da-809c-9ef8-ed6b948dd874", "page_no": 10, "no": 10, "origin": "滕王阁", "dest": "希岸酒店（南昌红谷滩铜锣湾）", "origin_lnglat": [115.881197, 28.681332], "dest_lnglat": [115.842914, 28.673874], "pts": [], "time": "2026-10-05 18:00", "transport": "", "voucher": ""}];
 const COLORS = ["#e6194b","#f58231","#ffb000","#3cb44b","#00c2a8","#42d4f4",
                 "#3b82f6","#4363d8","#a020f0","#f032e6","#ff5c93","#ff1493",
                 "#8b4513","#c71585","#808000","#1e90ff"];
@@ -66,6 +69,7 @@ if(trips.length === 0){
 
 let map = null;
 let markers = [];
+const places = [];
 
 function draw(){
   if(!window.AMap || trips.length === 0) return;
@@ -108,9 +112,44 @@ function draw(){
     item.onclick = () => { focusTrip(i); };
     legend.appendChild(item);
   });
+  // 地点快捷列表：去重所有起终点，点击定位到该地点
+  const addPlace = (name, lnglat, marker, color) => {
+    if(!name) return;
+    if(places.find(p => p.name === name)) return;
+    places.push({name:name, lnglat:lnglat, marker:marker, color:color});
+  };
+  markers.forEach(x => addPlace(x.t.origin, x.t.origin_lnglat, x.startMarker, x.lineColor));
+  markers.forEach(x => addPlace(x.t.dest,   x.t.dest_lnglat,   x.destMarker,   x.lineColor));
+  if(places.length){
+    const head = document.createElement('div');
+    head.className = 'sec-head';
+    head.textContent = '📍 全部地点（点击定位）';
+    legend.appendChild(head);
+    places.forEach(p => {
+      const it = document.createElement('div');
+      it.className = 'item plc';
+      it.innerHTML = '<span class="dot" style="background:' + p.color + '"></span>' +
+                     '<span>' + esc(p.name) + '</span>';
+      it.style.cursor = 'pointer';
+      it.onclick = () => { focusPlace(p); };
+      legend.appendChild(it);
+    });
+  }
   map.setFitView(allMarkers, false, [50,50,50,50], 14);
   // 默认打开第一条
   if(trips.length) focusTrip(0, true);
+}
+
+// 点击地点：居中放大地图 + 图钉弹跳强调
+function focusPlace(p){
+  if(!map) return;
+  if(p.marker && p.marker.setPosition){
+    map.setZoomAndCenter(15, p.lnglat);
+    if(p.marker.setAnimation){
+      p.marker.setAnimation('AMAP_ANIMATION_BOUNCE');
+      setTimeout(()=>{ try{ p.marker.setAnimation(''); }catch(e){} }, 1300);
+    }
+  }
 }
 
 function showInfo(t, line){
