@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>行程路线图</title>
+<style>
+  html,body{margin:0;height:100%;font-family:"Microsoft YaHei",sans-serif}
+  #map{width:100%;height:100%}
+  #legend{position:fixed;top:12px;left:12px;background:rgba(255,255,255,.94);
+          box-shadow:0 2px 8px rgba(0,0,0,.25);border-radius:8px;padding:10px 14px;
+          font-size:13px;max-height:70vh;overflow:auto;z-index:999}
+  #legend h3{margin:0 0 8px;font-size:14px}
+  .item{display:flex;align-items:center;gap:6px;margin:4px 0}
+  .line{width:22px;height:3px;border-radius:2px;flex:none}
+  .num{width:16px;height:16px;line-height:16px;text-align:center;background:#333;
+       color:#fff;border-radius:50%;font-size:10px;flex:none}
+  .focus-hint{color:#c62828;font-size:12px;margin-top:6px;display:none}
+  .tp-pin{background:#1e88e5;color:#fff;width:20px;height:20px;border-radius:50% 50% 50% 0;
+          transform:rotate(-45deg);text-align:center;line-height:20px;font-size:11px;
+          box-shadow:0 1px 3px rgba(0,0,0,.4)}
+  .tp-pin span{transform:rotate(45deg);display:inline-block}
+  .dst-pin{background:#d81b60;color:#fff;width:18px;height:18px;border-radius:50%;
+           text-align:center;line-height:18px;font-size:10px;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="legend">
+  <h3>🚗 行程路线图</h3>
+  <div id="items"></div>
+  <div class="focus-hint" id="focusHint"></div>
+</div>
+<script>
+<script>
+window._AMapSecurityConfig = {"securityJsCode": "6b19052dfd1e81784533678002d742d8"};
+</script>
+</script>
+<script src="https://webapi.amap.com/maps?v=2.0&key=c0323f91c9287bff3e1c2f5a8569fef9"></script>
+<script>
+const trips = [{"page_id": "3e2e167b-20da-801f-8760-c0adcee48a2e", "page_no": 1, "no": 1, "origin": "大运体育场", "dest": "八一广场（南昌起义纪念塔）", "origin_lnglat": [111.634167, 24.003307], "dest_lnglat": [121.640004, 38.885611], "pts": [], "time": "", "transport": "", "voucher": ""}, {"page_id": "979e014e-995f-4ee1-9e9d-a48d4496cb53", "page_no": 2, "no": 2, "origin": "八一广场（南昌起义纪念塔）", "dest": "江西省美术馆", "origin_lnglat": [121.640004, 38.885611], "dest_lnglat": [115.902603, 28.673859], "pts": [], "time": "2026-10-03 18:30", "transport": "", "voucher": ""}, {"page_id": "3e2e167b-20da-8045-b936-f8117fcc76b4", "page_no": 3, "no": 3, "origin": "江西省美术馆", "dest": "滕王阁", "origin_lnglat": [115.902603, 28.673859], "dest_lnglat": [115.881197, 28.681332], "pts": [], "time": "2026-10-03 20:00", "transport": "", "voucher": ""}, {"page_id": "3e2e167b-20da-809c-9ef8-ed6b948dd874", "page_no": 4, "no": 4, "origin": "滕王阁", "dest": "万寿宫（小吃街）", "origin_lnglat": [115.881197, 28.681332], "dest_lnglat": [110.07464, 34.151584], "pts": [], "time": "2026-10-03 21:15", "transport": "", "voucher": ""}, {"page_id": "3e2e167b-20da-80da-86e4-f7df2872e521", "page_no": 5, "no": 5, "origin": "万寿宫（小吃街）", "dest": "珠宝街（小吃街）", "origin_lnglat": [110.07464, 34.151584], "dest_lnglat": [104.074671, 30.674778], "pts": [], "time": "2026-10-04 15:30", "transport": "", "voucher": ""}, {"page_id": "3e2e167b-20da-805a-abae-cc123b9a9d49", "page_no": 6, "no": 6, "origin": "珠宝街（小吃街）", "dest": "摩天轮🎡", "origin_lnglat": [104.074671, 30.674778], "dest_lnglat": [76.001471, 39.468247], "pts": [], "time": "2026-10-04 16:45", "transport": "", "voucher": ""}, {"page_id": "e49c5f52-b893-4c5f-aada-01a6d1039e8c", "page_no": 7, "no": 7, "origin": "摩天轮🎡", "dest": "秋水广场（看喷泉）", "origin_lnglat": [76.001471, 39.468247], "dest_lnglat": [115.86273, 28.682634], "pts": [], "time": "2026-10-04 17:30", "transport": "", "voucher": ""}, {"page_id": "3e2e167b-20da-80c4-b1fb-cf2632b24cb6", "page_no": 8, "no": 8, "origin": "秋水广场（看喷泉）", "dest": "庐山一日游", "origin_lnglat": [115.86273, 28.682634], "dest_lnglat": [115.973108, 29.522059], "pts": [], "time": "2026-10-04 20:30", "transport": "", "voucher": ""}];
+const COLORS = ["#1e88e5","#7b1fa2","#00897b","#f4511e","#c0a125","#3949ab",
+                "#d81b60","#43a047","#6d4c41","#546e7a","#8e24aa","#00acc1"];
+const legend = document.getElementById('items');
+const quitHint = document.getElementById('focusHint');
+
+function esc(s){
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function fmtTrip(t){
+  const parts = [esc(t.origin) + ' → ' + esc(t.dest)];
+  if(t.time) parts.push(esc(t.time));
+  if(t.transport) parts.push('🚌 ' + esc(t.transport));
+  if(t.voucher) parts.push('📄 ' + esc(t.voucher));
+  return parts.join(' · ');
+}
+
+if(!window.AMap){
+  legend.innerHTML = '<div class="item">高德 JS API 加载失败：JS Key 未配置，或域名未加入白名单（需含 https://hazel-0222.github.io 与 http://127.0.0.1）</div>';
+}
+if(trips.length === 0){
+  legend.innerHTML = '<div class="item">没有可显示的行程（可能起终点地理编码失败）</div>';
+}
+
+let map = null;
+let markers = [];
+
+function draw(){
+  if(!window.AMap || trips.length === 0) return;
+  map = new AMap.Map('map', {zoom:6});
+  const allMarkers = [];
+  trips.forEach((t, i) => {
+    const color = COLORS[i % COLORS.length];
+    const no = t.no;
+    // 起点图钉
+    const startMarker = new AMap.Marker({
+      position:t.origin_lnglat,
+      content:'<div class="tp-pin"><span>' + no + '</span></div>',
+      offset:new AMap.Pixel(-10,-18)
+    });
+    // 终点图钉
+    const destMarker = new AMap.Marker({
+      position:t.dest_lnglat,
+      content:'<div class="dst-pin">↓</div>',
+      offset:new AMap.Pixel(-9,-9)
+    });
+    // 连线
+    const path = (t.pts && t.pts.length > 1) ? t.pts : [t.origin_lnglat, t.dest_lnglat];
+    const line = new AMap.Polyline({
+      path, strokeColor:color, strokeWeight:3, strokeOpacity:.85,
+      lineJoin:'round'
+    });
+    line.on('click', () => { showInfo(t, line); });
+    startMarker.on('click', () => { showInfo(t, line); });
+    map.add([startMarker, destMarker, line]);
+    allMarkers.push(startMarker, destMarker);
+    markers.push({no:no, startMarker:startMarker, destMarker:destMarker, line:line, t:t});
+    // 图例
+    const item = document.createElement('div');
+    item.className = 'item';
+    item.innerHTML = '<span class="line" style="background:' + color + '"></span>' +
+                     '<span class="num">' + no + '</span>' +
+                     '<span>' + fmtTrip(t) + '</span>';
+    item.style.cursor = 'pointer';
+    item.onclick = () => { focusTrip(i); };
+    legend.appendChild(item);
+  });
+  map.setFitView(allMarkers, false, [50,50,50,50], 14);
+  // 默认打开第一条
+  if(trips.length) focusTrip(0, true);
+}
+
+function showInfo(t, line){
+  const win = new AMap.InfoWindow({
+    content:'<div style="font-size:13px;max-width:260px"><b>#' + t.no + ' ' + fmtTrip(t) + '</b></div>'
+  });
+  const mid = t.pts && t.pts.length>1
+      ? t.pts[Math.floor(t.pts.length/2)]
+      : [(t.origin_lnglat[0]+t.dest_lnglat[0])/2,(t.origin_lnglat[1]+t.dest_lnglat[1])/2];
+  win.open(map, mid);
+  line.setOptions({strokeWeight:6,strokeColor:'#ff5722'});
+  setTimeout(()=>line.setOptions({strokeWeight:3}),1200);
+}
+
+function focusTrip(i, silent){
+  if(!markers[i]) return;
+  const m = markers[i];
+  m.line.setOptions({strokeWeight:7, strokeColor:'#ff5722', zIndex:999});
+  if(!silent) showInfo(m.t, m.line);
+  map.setFitView([m.startMarker, m.destMarker], false, [80,80,420,80], 16);
+  markers.forEach(x=>{
+    if(x.no!==m.no) x.line.setOptions({strokeWeight:2, strokeOpacity:.45, zIndex:1});
+  });
+  // 被聚焦行程恢复高亮样式
+  m.line.setOptions({strokeWeight:7, strokeOpacity:1, zIndex:999});
+}
+
+// URL ?focus=<编号> 高亮
+const params = new URLSearchParams(location.search);
+const focusNo = params.get('focus');
+if(focusNo){
+  quitHint.style.display='block';
+  quitHint.textContent = '焦点行程 #' + focusNo + '（点击图例任意项可切换）';
+  setTimeout(()=>{
+    const idx = trips.findIndex(t => String(t.no)===focusNo);
+    if(idx>=0) focusTrip(idx);
+  }, 400);
+}
+
+window.addEventListener('load', draw);
+</script>
+</body>
+</html>
