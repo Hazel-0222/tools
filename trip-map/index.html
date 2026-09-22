@@ -12,6 +12,8 @@
           font-size:13px;max-height:70vh;overflow:auto;z-index:999}
   #legend h3{margin:0 0 8px;font-size:14px}
   .item{display:flex;align-items:center;gap:6px;margin:4px 0}
+  .item .txt{flex:1;min-width:0;line-height:1.4}
+  .item .km{margin-left:auto;flex:none;color:#888;font-size:12px;white-space:nowrap}
   .line{width:22px;height:3px;border-radius:2px;flex:none}
   .num{width:16px;height:16px;line-height:16px;text-align:center;background:#333;
        color:#fff;border-radius:50%;font-size:10px;flex:none}
@@ -69,17 +71,27 @@ function esc(s){
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// 详情只显示时间 HH:MM（日期由 Day 分组标题承担）；仅日期无时刻的记录回退显示 MM-DD
+function fmtTime(t){
+  const s = String(t.time || '');
+  const m = s.match(/^\d{4}-\d{2}-\d{2}(?: (\d{2}:\d{2}))?/);
+  if(!m) return s;
+  return m[1] ? m[1] : s.slice(5);
+}
+
 function fmtTrip(t){
-  if(t.solo){
-    const parts = [esc(t.origin)];
-    if(t.time) parts.push(esc(t.time));
-    if(t.transport) parts.push('🚌 ' + esc(t.transport));
-    if(t.voucher) parts.push('📄 ' + esc(t.voucher));
-    return parts.join(' · ');
-  }
-  const parts = [esc(t.origin) + ' → ' + esc(t.dest)];
-  if(t.time) parts.push(esc(t.time));
-  if(t.km) parts.push('📏 ' + t.km + ' km');
+  const parts = [];
+  if(t.time) parts.push(fmtTime(t));
+  parts.push(t.solo ? esc(t.origin) : esc(t.origin) + ' → ' + esc(t.dest));
+  if(!t.solo && t.km) parts.push(t.km + ' km');
+  if(t.transport) parts.push('🚌 ' + esc(t.transport));
+  if(t.voucher) parts.push('📄 ' + esc(t.voucher));
+  return parts.join(' · ');
+}
+function fmtTripNoKm(t){
+  const parts = [];
+  if(t.time) parts.push(fmtTime(t));
+  parts.push(t.solo ? esc(t.origin) : esc(t.origin) + ' → ' + esc(t.dest));
   if(t.transport) parts.push('🚌 ' + esc(t.transport));
   if(t.voucher) parts.push('📄 ' + esc(t.voucher));
   return parts.join(' · ');
@@ -143,7 +155,9 @@ function draw(){
         ? '<span class="num sol">●</span>'
         : '<span class="line" style="background:' + color + '"></span>') +
                      '<span class="num">' + no + '</span>' +
-                     '<span>' + fmtTrip(t) + '</span>';
+                     '<span class="txt">' + fmtTripNoKm(t) + '</span>' +
+                     (t.solo || !t.km ? '' :
+                      '<span class="km">' + t.km + ' km</span>');
     item.style.cursor = 'pointer';
     item.onclick = () => { focusTrip(i); };
     entry.item = item;
@@ -244,6 +258,20 @@ function toggleDay(day, btn){
     btn.textContent='恢复';
   }
   refresh();
+  // 适配地图到当前可见范围：仅看某天时放大到该天，恢复全部时回到全部
+  fitToVisible();
+}
+
+// 地图适配到当前可见（未被隐藏）的行程范围
+function fitToVisible(){
+  if(!map) return;
+  const fits = [];
+  markers.forEach(x=>{
+    if(!isVisible(x)) return;
+    fits.push(x.startMarker);
+    if(x.destMarker) fits.push(x.destMarker);
+  });
+  if(fits.length) map.setFitView(fits, false, [80,80,420,80], allDaysShown ? 6 : 14);
 }
 
 // 公里上限过滤：隐藏直线距离超过指定公里的段
