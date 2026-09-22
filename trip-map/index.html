@@ -10,10 +10,18 @@
   #legend{position:fixed;top:12px;left:12px;background:rgba(255,255,255,.94);
           box-shadow:0 2px 8px rgba(0,0,0,.25);border-radius:8px;padding:10px 14px;
           font-size:13px;max-height:70vh;overflow:auto;z-index:999}
-  #legend h3{margin:0 0 8px;font-size:14px}
+  #legend h3{margin:0 0 8px;font-size:14px;display:flex;justify-content:space-between;
+             align-items:center}
+  #legend h3 .fold{cursor:pointer;color:#1e88e5;font-size:12px;font-weight:400;
+                   text-decoration:none;padding-left:12px}
+  #legendToggle{position:fixed;top:12px;left:12px;display:none;background:rgba(255,255,255,.94);
+                box-shadow:0 2px 8px rgba(0,0,0,.25);border-radius:8px;padding:8px 14px;
+                font-size:13px;color:#1e88e5;cursor:pointer;z-index:999}
+  #legendToggle:hover{background:#e3f2fd}
   .item{display:flex;align-items:center;gap:6px;margin:4px 0}
   .item .txt{flex:1;min-width:0;line-height:1.4}
   .item .km{margin-left:auto;flex:none;color:#888;font-size:12px;white-space:nowrap}
+  .item .dur{margin-left:auto;flex:none;color:#999;font-size:11px;white-space:nowrap}
   .line{width:22px;height:3px;border-radius:2px;flex:none}
   .num{width:16px;height:16px;line-height:16px;text-align:center;background:#333;
        color:#fff;border-radius:50%;font-size:10px;flex:none}
@@ -43,7 +51,7 @@
 <body>
 <div id="map"></div>
 <div id="legend">
-  <h3>🚗 行程路线图</h3>
+  <h3>🚗 行程路线图<a class="fold" id="foldBtn" href="javascript:void(0)">收起 ›</a></h3>
   <div class="km-bar">
     隐藏超过
     <input type="number" id="kmMax" min="0" step="1" placeholder="公里">
@@ -53,6 +61,7 @@
   <div id="items"></div>
   <div class="focus-hint" id="focusHint"></div>
 </div>
+<div id="legendToggle">☰ 行程路线图</div>
 <script>
 <script>
 window._AMapSecurityConfig = {"securityJsCode": "6b19052dfd1e81784533678002d742d8"};
@@ -60,12 +69,22 @@ window._AMapSecurityConfig = {"securityJsCode": "6b19052dfd1e81784533678002d742d
 </script>
 <script src="https://webapi.amap.com/maps?v=2.0&key=c0323f91c9287bff3e1c2f5a8569fef9"></script>
 <script>
-const trips = [{"page_id": "3e2e167b-20da-801f-8760-c0adcee48a2e", "page_no": 1, "no": 1, "origin": "大运体育场", "dest": "大运体育场", "origin_lnglat": [115.907294, 28.681656], "dest_lnglat": [115.907294, 28.681656], "pts": [], "time": "2026-10-02 19:30", "day": "2026-10-02", "transport": "", "voucher": "", "solo": true, "km": 0}, {"page_id": "2b2fd5f4-515d-475f-a04f-3e82907b4dc1", "page_no": 2, "no": 2, "origin": "深圳北", "dest": "南昌西站", "origin_lnglat": [114.057939, 22.543527], "dest_lnglat": [115.792516, 28.624876], "pts": [], "time": "2026-10-03 10:00", "day": "2026-10-03", "transport": "", "voucher": "", "solo": false, "km": 698.2}, {"page_id": "0bf3bdc7-4356-4e2f-9060-d78bf7dd4967", "page_no": 3, "no": 3, "origin": "南昌西站", "dest": "希岸酒店(南昌红谷滩铜锣湾广场店)", "origin_lnglat": [115.792516, 28.624876], "dest_lnglat": [115.842914, 28.673874], "pts": [], "time": "2026-10-03 13:15", "day": "2026-10-03", "transport": "", "voucher": "", "solo": false, "km": 7.3}, {"page_id": "a78986b8-d65f-4221-9728-1f0348088620", "page_no": 4, "no": 4, "origin": "希岸酒店(南昌红谷滩铜锣湾广场店)", "dest": "老三样万寿宫店", "origin_lnglat": [115.842914, 28.673874], "dest_lnglat": [115.888508, 28.672619], "pts": [], "time": "2026-10-03 15:30", "day": "2026-10-03", "transport": "", "voucher": "", "solo": false, "km": 4.5}, {"page_id": "3e2e167b-20da-805a-818a-f47155bb4c47", "page_no": 5, "no": 5, "origin": "老三样万寿宫店", "dest": "八一南昌起义纪念塔", "origin_lnglat": [115.888508, 28.672619], "dest_lnglat": [115.904562, 28.672667], "pts": [], "time": "2026-10-03 17:20", "day": "2026-10-03", "transport": "", "voucher": "", "solo": false, "km": 1.6}, {"page_id": "979e014e-995f-4ee1-9e9d-a48d4496cb53", "page_no": 6, "no": 6, "origin": "八一南昌起义纪念塔", "dest": "江西省美术馆", "origin_lnglat": [115.904562, 28.672667], "dest_lnglat": [115.902603, 28.673859], "pts": [], "time": "2026-10-03 19:30", "day": "2026-10-03", "transport": "", "voucher": "", "solo": false, "km": 0.2}, {"page_id": "3e2e167b-20da-8045-b936-f8117fcc76b4", "page_no": 7, "no": 7, "origin": "江西省美术馆", "dest": "万寿宫（小吃街）", "origin_lnglat": [115.902603, 28.673859], "dest_lnglat": [115.889582, 28.673438], "pts": [], "time": "2026-10-03 21:00", "day": "2026-10-03", "transport": "", "voucher": "", "solo": false, "km": 1.3}, {"page_id": "3e2e167b-20da-80da-86e4-f7df2872e521", "page_no": 8, "no": 8, "origin": "万寿宫（小吃街）", "dest": "希岸酒店(南昌红谷滩铜锣湾广场店)", "origin_lnglat": [115.889582, 28.673438], "dest_lnglat": [115.842914, 28.673874], "pts": [], "time": "2026-10-03 22:30", "day": "2026-10-03", "transport": "", "voucher": "", "solo": false, "km": 4.6}, {"page_id": "875a4754-58ea-4da8-b4d2-9a3049b8e203", "page_no": 9, "no": 9, "origin": "希岸酒店(南昌红谷滩铜锣湾广场店)", "dest": "南昌舰主题公园", "origin_lnglat": [115.842914, 28.673874], "dest_lnglat": [115.857972, 28.682976], "pts": [], "time": "2026-10-04 08:45", "day": "2026-10-04", "transport": "", "voucher": "", "solo": false, "km": 1.8}, {"page_id": "3e2e167b-20da-8032-b37a-d53bf65bdcd5", "page_no": 10, "no": 10, "origin": "南昌舰主题公园", "dest": "蛤蟆街", "origin_lnglat": [115.857972, 28.682976], "dest_lnglat": [115.888242, 28.685769], "pts": [], "time": "2026-10-04 12:00", "day": "2026-10-04", "transport": "", "voucher": "", "solo": false, "km": 3.0}, {"page_id": "7190f992-f1b7-489a-a065-6439e2523bdc", "page_no": 11, "no": 11, "origin": "蛤蟆街", "dest": "摩天轮🎡", "origin_lnglat": [115.888242, 28.685769], "dest_lnglat": [115.850719, 28.656183], "pts": [], "time": "2026-10-04 16:00", "day": "2026-10-04", "transport": "", "voucher": "", "solo": false, "km": 4.9}, {"page_id": "e49c5f52-b893-4c5f-aada-01a6d1039e8c", "page_no": 12, "no": 12, "origin": "摩天轮🎡", "dest": "秋水广场（看喷泉）", "origin_lnglat": [115.850719, 28.656183], "dest_lnglat": [115.859973, 28.681095], "pts": [], "time": "2026-10-04 19:45", "day": "2026-10-04", "transport": "", "voucher": "", "solo": false, "km": 2.9}, {"page_id": "3e2e167b-20da-80c4-b1fb-cf2632b24cb6", "page_no": 13, "no": 13, "origin": "秋水广场（看喷泉）", "dest": "希岸酒店(南昌红谷滩铜锣湾广场店)", "origin_lnglat": [115.859973, 28.681095], "dest_lnglat": [115.842914, 28.673874], "pts": [], "time": "2026-10-04 21:15", "day": "2026-10-04", "transport": "", "voucher": "", "solo": false, "km": 1.8}, {"page_id": "3e2e167b-20da-8036-833d-cdb9a1054ca4", "page_no": 14, "no": 14, "origin": "希岸酒店(南昌红谷滩铜锣湾广场店)", "dest": "庐山一日游", "origin_lnglat": [115.842914, 28.673874], "dest_lnglat": [116.045118, 29.448225], "pts": [], "time": "2026-10-05 06:00", "day": "2026-10-05", "transport": "", "voucher": "", "solo": false, "km": 88.3}, {"page_id": "186ea658-e80d-408c-8e1a-c01a478c1777", "page_no": 15, "no": 15, "origin": "庐山一日游", "dest": "希岸酒店(南昌红谷滩铜锣湾广场店)", "origin_lnglat": [116.045118, 29.448225], "dest_lnglat": [115.842914, 28.673874], "pts": [], "time": "2026-10-05 18:00", "day": "2026-10-05", "transport": "", "voucher": "", "solo": false, "km": 88.3}, {"page_id": "5b3ebabb-04e3-419c-9c26-7eea46362824", "page_no": 16, "no": 16, "origin": "希岸酒店(南昌红谷滩铜锣湾广场店)", "dest": "滕王阁", "origin_lnglat": [115.842914, 28.673874], "dest_lnglat": [115.881197, 28.681332], "pts": [], "time": "2026-10-06 09:30", "day": "2026-10-06", "transport": "", "voucher": "", "solo": false, "km": 3.8}, {"page_id": "3e2e167b-20da-8026-8511-d17bf306ab6d", "page_no": 17, "no": 17, "origin": "黄记瓦罐汤大士院店", "dest": "胖子水煮", "origin_lnglat": [115.884662, 28.684932], "dest_lnglat": [115.882602, 28.681225], "pts": [], "time": "2026-10-06 13:00", "day": "2026-10-06", "transport": "", "voucher": "", "solo": false, "km": 0.5}, {"page_id": "3e2e167b-20da-805f-b003-d278e4107dff", "page_no": 18, "no": 18, "origin": "胖子水煮", "dest": "希岸酒店(南昌红谷滩铜锣湾广场店)", "origin_lnglat": [115.882602, 28.681225], "dest_lnglat": [115.842914, 28.673874], "pts": [], "time": "2026-10-06 18:00", "day": "2026-10-06", "transport": "", "voucher": "", "solo": false, "km": 4.0}, {"page_id": "6fffaab2-f7a6-451c-b525-5d600ca94935", "page_no": 19, "no": 19, "origin": "希岸酒店(南昌红谷滩铜锣湾广场店)", "dest": "广州南站", "origin_lnglat": [115.842914, 28.673874], "dest_lnglat": [113.277732, 22.989125], "pts": [], "time": "2026-10-07 09:45", "day": "2026-10-07", "transport": "", "voucher": "", "solo": false, "km": 682.2}, {"page_id": "3e2e167b-20da-801e-8e50-ff5cfcd340df", "page_no": 20, "no": 20, "origin": "广州南站", "dest": "南昌西站", "origin_lnglat": [113.277732, 22.989125], "dest_lnglat": [115.792516, 28.624876], "pts": [], "time": "2026-10-07 14:00", "day": "2026-10-07", "transport": "", "voucher": "", "solo": false, "km": 675.3}];
+const trips = [{"page_id": "3e2e167b-20da-801f-8760-c0adcee48a2e", "page_no": 1, "no": 1, "origin": "大运体育场", "dest": "大运体育场", "origin_lnglat": [115.907294, 28.681656], "dest_lnglat": [115.907294, 28.681656], "pts": [], "time": "2026-10-02 19:30", "otime": "2026-10-02 19:30", "odur": "30min", "dtime": "2026-10-02 19:30", "ddur": "30min", "day": "2026-10-02", "transport": "", "voucher": "", "solo": true, "km": 0}, {"page_id": "2b2fd5f4-515d-475f-a04f-3e82907b4dc1", "page_no": 2, "no": 2, "origin": "深圳北", "dest": "南昌西站", "origin_lnglat": [114.057939, 22.543527], "dest_lnglat": [115.792516, 28.624876], "pts": [], "time": "2026-10-03 10:00", "otime": "2026-10-03 09:00", "odur": "1h", "dtime": "2026-10-03 12:30", "ddur": "45min", "day": "2026-10-03", "transport": "", "voucher": "", "solo": false, "km": 698.2}, {"page_id": "0bf3bdc7-4356-4e2f-9060-d78bf7dd4967", "page_no": 3, "no": 3, "origin": "南昌西站", "dest": "希岸酒店(南昌红谷滩铜锣湾广场店)", "origin_lnglat": [115.792516, 28.624876], "dest_lnglat": [115.842914, 28.673874], "pts": [], "time": "2026-10-03 13:15", "otime": "2026-10-03 12:30", "odur": "45min", "dtime": "2026-10-03 14:15", "ddur": "1h 15min", "day": "2026-10-03", "transport": "", "voucher": "", "solo": false, "km": 7.3}, {"page_id": "a78986b8-d65f-4221-9728-1f0348088620", "page_no": 4, "no": 4, "origin": "希岸酒店(南昌红谷滩铜锣湾广场店)", "dest": "老三样万寿宫店", "origin_lnglat": [115.842914, 28.673874], "dest_lnglat": [115.888508, 28.672619], "pts": [], "time": "2026-10-03 15:30", "otime": "2026-10-03 14:15", "odur": "1h 15min", "dtime": "2026-10-03 15:50", "ddur": "1h 30min", "day": "2026-10-03", "transport": "", "voucher": "", "solo": false, "km": 4.5}, {"page_id": "3e2e167b-20da-805a-818a-f47155bb4c47", "page_no": 5, "no": 5, "origin": "老三样万寿宫店", "dest": "八一南昌起义纪念塔", "origin_lnglat": [115.888508, 28.672619], "dest_lnglat": [115.904562, 28.672667], "pts": [], "time": "2026-10-03 17:20", "otime": "2026-10-03 15:50", "odur": "1h 30min", "dtime": "2026-10-03 18:30", "ddur": "1h", "day": "2026-10-03", "transport": "", "voucher": "", "solo": false, "km": 1.6}, {"page_id": "979e014e-995f-4ee1-9e9d-a48d4496cb53", "page_no": 6, "no": 6, "origin": "八一南昌起义纪念塔", "dest": "江西省美术馆", "origin_lnglat": [115.904562, 28.672667], "dest_lnglat": [115.902603, 28.673859], "pts": [], "time": "2026-10-03 19:30", "otime": "2026-10-03 18:30", "odur": "1h", "dtime": "2026-10-03 20:00", "ddur": "1h", "day": "2026-10-03", "transport": "", "voucher": "", "solo": false, "km": 0.2}, {"page_id": "3e2e167b-20da-8045-b936-f8117fcc76b4", "page_no": 7, "no": 7, "origin": "江西省美术馆", "dest": "万寿宫（小吃街）", "origin_lnglat": [115.902603, 28.673859], "dest_lnglat": [115.889582, 28.673438], "pts": [], "time": "2026-10-03 21:00", "otime": "2026-10-03 20:00", "odur": "1h", "dtime": "2026-10-03 21:15", "ddur": "1h 15min", "day": "2026-10-03", "transport": "", "voucher": "", "solo": false, "km": 1.3}, {"page_id": "3e2e167b-20da-80da-86e4-f7df2872e521", "page_no": 8, "no": 8, "origin": "万寿宫（小吃街）", "dest": "希岸酒店(南昌红谷滩铜锣湾广场店)", "origin_lnglat": [115.889582, 28.673438], "dest_lnglat": [115.842914, 28.673874], "pts": [], "time": "2026-10-03 22:30", "otime": "2026-10-03 21:15", "odur": "1h 15min", "dtime": "2026-10-03 22:45", "ddur": "10h", "day": "2026-10-03", "transport": "", "voucher": "", "solo": false, "km": 4.6}, {"page_id": "875a4754-58ea-4da8-b4d2-9a3049b8e203", "page_no": 9, "no": 9, "origin": "希岸酒店(南昌红谷滩铜锣湾广场店)", "dest": "南昌舰主题公园", "origin_lnglat": [115.842914, 28.673874], "dest_lnglat": [115.857972, 28.682976], "pts": [], "time": "2026-10-04 08:45", "otime": "2026-10-03 22:45", "odur": "10h", "dtime": "2026-10-04 10:00", "ddur": "2h", "day": "2026-10-03", "transport": "", "voucher": "", "solo": false, "km": 1.8}, {"page_id": "3e2e167b-20da-8032-b37a-d53bf65bdcd5", "page_no": 10, "no": 10, "origin": "南昌舰主题公园", "dest": "蛤蟆街", "origin_lnglat": [115.857972, 28.682976], "dest_lnglat": [115.888242, 28.685769], "pts": [], "time": "2026-10-04 12:00", "otime": "2026-10-04 10:00", "odur": "2h", "dtime": "2026-10-04 15:00", "ddur": "1h", "day": "2026-10-04", "transport": "", "voucher": "", "solo": false, "km": 3.0}, {"page_id": "7190f992-f1b7-489a-a065-6439e2523bdc", "page_no": 11, "no": 11, "origin": "蛤蟆街", "dest": "摩天轮🎡", "origin_lnglat": [115.888242, 28.685769], "dest_lnglat": [115.850719, 28.656183], "pts": [], "time": "2026-10-04 16:00", "otime": "2026-10-04 15:00", "odur": "1h", "dtime": "2026-10-04 17:30", "ddur": "2h 15min", "day": "2026-10-04", "transport": "", "voucher": "", "solo": false, "km": 4.9}, {"page_id": "e49c5f52-b893-4c5f-aada-01a6d1039e8c", "page_no": 12, "no": 12, "origin": "摩天轮🎡", "dest": "秋水广场（看喷泉）", "origin_lnglat": [115.850719, 28.656183], "dest_lnglat": [115.859973, 28.681095], "pts": [], "time": "2026-10-04 19:45", "otime": "2026-10-04 17:30", "odur": "2h 15min", "dtime": "2026-10-04 20:15", "ddur": "1h", "day": "2026-10-04", "transport": "", "voucher": "", "solo": false, "km": 2.9}, {"page_id": "3e2e167b-20da-80c4-b1fb-cf2632b24cb6", "page_no": 13, "no": 13, "origin": "秋水广场（看喷泉）", "dest": "希岸酒店(南昌红谷滩铜锣湾广场店)", "origin_lnglat": [115.859973, 28.681095], "dest_lnglat": [115.842914, 28.673874], "pts": [], "time": "2026-10-04 21:15", "otime": "2026-10-04 20:15", "odur": "1h", "dtime": "2026-10-04 21:30", "ddur": "8h 30min", "day": "2026-10-04", "transport": "", "voucher": "", "solo": false, "km": 1.8}, {"page_id": "3e2e167b-20da-8036-833d-cdb9a1054ca4", "page_no": 14, "no": 14, "origin": "希岸酒店(南昌红谷滩铜锣湾广场店)", "dest": "庐山一日游", "origin_lnglat": [115.842914, 28.673874], "dest_lnglat": [116.045118, 29.448225], "pts": [], "time": "2026-10-05 06:00", "otime": "2026-10-04 21:30", "odur": "8h 30min", "dtime": "2026-10-05 06:30", "ddur": "11h 30min", "day": "2026-10-04", "transport": "", "voucher": "", "solo": false, "km": 88.3}, {"page_id": "186ea658-e80d-408c-8e1a-c01a478c1777", "page_no": 15, "no": 15, "origin": "庐山一日游", "dest": "希岸酒店(南昌红谷滩铜锣湾广场店)", "origin_lnglat": [116.045118, 29.448225], "dest_lnglat": [115.842914, 28.673874], "pts": [], "time": "2026-10-05 18:00", "otime": "2026-10-05 06:30", "odur": "11h 30min", "dtime": "2026-10-05 21:45", "ddur": "11h 45min", "day": "2026-10-05", "transport": "", "voucher": "", "solo": false, "km": 88.3}, {"page_id": "5b3ebabb-04e3-419c-9c26-7eea46362824", "page_no": 16, "no": 16, "origin": "希岸酒店(南昌红谷滩铜锣湾广场店)", "dest": "滕王阁", "origin_lnglat": [115.842914, 28.673874], "dest_lnglat": [115.881197, 28.681332], "pts": [], "time": "2026-10-06 09:30", "otime": "2026-10-05 21:45", "odur": "11h 45min", "dtime": "2026-10-05 23:59", "ddur": "", "day": "2026-10-05", "transport": "", "voucher": "", "solo": false, "km": 3.8}, {"page_id": "3e2e167b-20da-8026-8511-d17bf306ab6d", "page_no": 17, "no": 17, "origin": "黄记瓦罐汤大士院店", "dest": "胖子水煮", "origin_lnglat": [115.884662, 28.684932], "dest_lnglat": [115.882602, 28.681225], "pts": [], "time": "2026-10-06 13:00", "otime": "2026-10-06 12:00", "odur": "1h", "dtime": "2026-10-06 17:00", "ddur": "1h", "day": "2026-10-06", "transport": "", "voucher": "", "solo": false, "km": 0.5}, {"page_id": "3e2e167b-20da-805f-b003-d278e4107dff", "page_no": 18, "no": 18, "origin": "胖子水煮", "dest": "希岸酒店(南昌红谷滩铜锣湾广场店)", "origin_lnglat": [115.882602, 28.681225], "dest_lnglat": [115.842914, 28.673874], "pts": [], "time": "2026-10-06 18:00", "otime": "2026-10-06 17:00", "odur": "1h", "dtime": "2026-10-06 22:00", "ddur": "11h 45min", "day": "2026-10-06", "transport": "", "voucher": "", "solo": false, "km": 4.0}, {"page_id": "6fffaab2-f7a6-451c-b525-5d600ca94935", "page_no": 19, "no": 19, "origin": "希岸酒店(南昌红谷滩铜锣湾广场店)", "dest": "广州南站", "origin_lnglat": [115.842914, 28.673874], "dest_lnglat": [113.277732, 22.989125], "pts": [], "time": "2026-10-07 09:45", "otime": "2026-10-06 22:00", "odur": "11h 45min", "dtime": "2026-10-07 13:30", "ddur": "30min", "day": "2026-10-06", "transport": "", "voucher": "", "solo": false, "km": 682.2}, {"page_id": "3e2e167b-20da-801e-8e50-ff5cfcd340df", "page_no": 20, "no": 20, "origin": "广州南站", "dest": "南昌西站", "origin_lnglat": [113.277732, 22.989125], "dest_lnglat": [115.792516, 28.624876], "pts": [], "time": "2026-10-07 14:00", "otime": "2026-10-07 13:30", "odur": "30min", "dtime": "2026-10-07 18:00", "ddur": "30min", "day": "2026-10-07", "transport": "", "voucher": "", "solo": false, "km": 675.3}];
 const COLORS = ["#e6194b","#f58231","#ffb000","#3cb44b","#00c2a8","#42d4f4",
                 "#3b82f6","#4363d8","#a020f0","#f032e6","#ff5c93","#ff1493",
                 "#8b4513","#c71585","#808000","#1e90ff"];
 const legend = document.getElementById('items');
 const quitHint = document.getElementById('focusHint');
+const legendPanel = document.getElementById('legend');
+const legendToggle = document.getElementById('legendToggle');
+
+// 面板可收起：点标题「收起」隐藏整个图例面板，左上角浮出「☰ 行程路线图」点击恢复
+function setLegendVisible(show){
+  legendPanel.style.display = show ? '' : 'none';
+  legendToggle.style.display = show ? 'none' : '';
+}
+document.getElementById('foldBtn').onclick = () => setLegendVisible(false);
+legendToggle.onclick = () => setLegendVisible(true);
 
 function esc(s){
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -79,22 +98,23 @@ function fmtTime(t){
   return m[1] ? m[1] : s.slice(5);
 }
 
+function fmtClock(s){
+  const m = String(s || '').match(/^\d{4}-\d{2}-\d{2}(?: (\d{2}:\d{2}))?/);
+  if(!m) return s;
+  return m[1] ? m[1] : String(s||'').slice(5);
+}
 function fmtTrip(t){
   const parts = [];
-  if(t.time) parts.push(fmtTime(t));
+  if(t.otime) parts.push(fmtClock(t.otime));
   parts.push(t.solo ? esc(t.origin) : esc(t.origin) + ' → ' + esc(t.dest));
   if(!t.solo && t.km) parts.push(t.km + ' km');
   if(t.transport) parts.push('🚌 ' + esc(t.transport));
   if(t.voucher) parts.push('📄 ' + esc(t.voucher));
   return parts.join(' · ');
 }
-function fmtTripNoKm(t){
-  const parts = [];
-  if(t.time) parts.push(fmtTime(t));
-  parts.push(t.solo ? esc(t.origin) : esc(t.origin) + ' → ' + esc(t.dest));
-  if(t.transport) parts.push('🚌 ' + esc(t.transport));
-  if(t.voucher) parts.push('📄 ' + esc(t.voucher));
-  return parts.join(' · ');
+// 方案 F 图例条目：仅「时刻 + 地点名」，不含路线、距离、交通
+function fmtVisit(t){
+  return fmtClock(t.otime || t.time) + '  ' + esc(t.origin);
 }
 
 if(!window.AMap){
@@ -142,24 +162,48 @@ function draw(){
       });
       line.on('click', () => { focusTrip(i); });
       map.add([destMarker, line]);
+      // 连线中点标签：交通 + 距离（trip 的路线宣传位，替代图例里的公里数）
+      const mid = (t.pts && t.pts.length > 1)
+          ? t.pts[Math.floor(t.pts.length/2)]
+          : [(t.origin_lnglat[0]+t.dest_lnglat[0])/2,(t.origin_lnglat[1]+t.dest_lnglat[1])/2];
+      const lblTxt = (t.transport ? esc(t.transport) + ' · ' : '') + (t.km ? t.km + ' km' : '');
+      const lbl = new AMap.Text({
+        text: lblTxt,
+        position: mid,
+        offset: new AMap.Pixel(0, -8),
+        style:{
+          'background':'#fff','border':'1px solid rgba(0,0,0,.15)','color':'#666','font-size':'10px',
+          'padding':'1px 6px','border-radius':'8px','white-space':'nowrap','box-shadow':'0 1px 2px rgba(0,0,0,.12)'
+        }
+      });
+      lbl.on('click', () => { focusTrip(i); });
+      map.add(lbl);
+      line._lbl = lbl;
     }
     map.add(startMarker);
     allMarkers.push(startMarker); if(destMarker) allMarkers.push(destMarker);
     const entry = {no:no, startMarker:startMarker, destMarker:destMarker,
-                   line:line, t:t, lineColor:color, day:t.day||'', item:null};
+                   line:line, lbl:line ? line._lbl : null, t:t, lineColor:color, day:t.day||'', item:null,
+                   // 移动日 = 出发时刻所在的日期（t.time=起点结束/出发时刻）。
+                   // 图例按入住夜(entry.day)分组，但「仅看某天」过滤连线按移动日归属：
+                   // 如 希岸 10-04 21:30 入住 → 庐山 10-05 06:30 出发，移动日=10-05，
+                   // 点 DAY3 仅看不再出现去庐山的线。
+                   mday: String(t.time || '').slice(0,10) || String(t.day || '').slice(0,10)};
     markers.push(entry);
     // 图例（先按天归组，循环后统一渲染）
     const item = document.createElement('div');
     item.className = 'item';
-    item.innerHTML = (t.solo
-        ? '<span class="num sol">●</span>'
-        : '<span class="line" style="background:' + color + '"></span>') +
+    item.innerHTML = '<span class="line" style="background:' + color + '"></span>' +
                      '<span class="num">' + no + '</span>' +
-                     '<span class="txt">' + fmtTripNoKm(t) + '</span>' +
-                     (t.solo || !t.km ? '' :
-                      '<span class="km">' + t.km + ' km</span>');
+                     '<span class="txt">' + fmtVisit(t) + '</span>' +
+                     (t.odur ? '<span class="dur">' + t.odur + '</span>' : '');
     item.style.cursor = 'pointer';
-    item.onclick = () => { focusTrip(i); };
+    // 图例条目代表「地点」：点击优先聚焦「到达该地点」的前一段路线
+    // （如点击“10:00 南昌舰主题公园” → 高亮 希岸→南昌舰，而非 南昌舰→蛤蟆街）
+    item.onclick = () => {
+      if(i > 0 && markers[i-1] && markers[i-1].t.dest === t.origin) focusTrip(i-1);
+      else focusTrip(i);
+    };
     entry.item = item;
     const day = entry.day;
     if(!groups.has(day)) groups.set(day, []);
@@ -223,21 +267,31 @@ function focusPlace(p){
   }
 }
 
-// 可见性统一判定：同时考虑「仅看某一天」和「公里上限过滤」
+// 连线/图钉可见性：同时考虑「仅看某一天」和「公里上限过滤」
 function isVisible(entry){
-  if(!allDaysShown && entry.day !== selectedDay) return false;   // 非选中天
+  // 仅看某天时按「移动日」过滤：跨夜出发的段（如 10-04 晚入住 → 10-05 早去庐山）
+  // 其移动日=10-05，点 DAY3 仅看不会把去庐山的线带出来
+  if(!allDaysShown && entry.mday !== selectedDay) return false;
   if(kmMax > 0 && entry.t.km && entry.t.km > kmMax) return false; // 超长路线
   return true;
 }
 
-// 按当前状态刷新所有线/图钉/图例
+// 图例条目可见性：按「入住夜」的 day 分组 + 公里上限（仅看某天时该组条目保留）
+function itemVisible(entry){
+  if(!allDaysShown && entry.day !== selectedDay) return false;
+  if(kmMax > 0 && entry.t.km && entry.t.km > kmMax) return false;
+  return true;
+}
+
+// 按当前状态刷新所有线/图钉/标签/图例
 function refresh(){
   markers.forEach(x=>{
     const vis = isVisible(x);
     x.startMarker.setMap(vis ? map : null);
     if(x.destMarker) x.destMarker.setMap(vis ? map : null);
     if(x.line) x.line.setMap(vis ? map : null);
-    x.item.classList.toggle('hidden', !vis);
+    if(x.lbl) x.lbl.setMap(vis ? map : null);
+    x.item.classList.toggle('hidden', !itemVisible(x));
   });
 }
 
