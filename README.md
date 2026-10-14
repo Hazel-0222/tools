@@ -4,14 +4,19 @@
 
 ## 工具列表
 
+### Image
+- [image-stitch](image/image-stitch/) — 图片拼接工具
+- [color-picker](image/color-picker/) — 取色器：统计主色、点击取色
+
 ### Word
 - [word-extract-images](word/word-extract-images/) — 从 Word 文档中提取图片
+- [word-diff](word/word-diff/) — Word 文档差异对比
 
 ### Excel
 - [excel-add-toc](excel/excel-add-toc/) — 为 Excel 工作簿添加目录页
 
-### Image
-- [image-stitch](image/image-stitch/) — 图片拼接工具
+### Schedule
+- [activity-scheduler](schedule/activity-scheduler/) — 排期日程：按天甘特图排布，支持每周/每月循环自动铺色，可导入导出 Excel
 
 ## 使用方式
 

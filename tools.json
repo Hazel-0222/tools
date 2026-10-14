@@ -28,5 +28,11 @@
         "desc": "自动生成工作表目录页，超链接跳转，纯浏览器处理",
         "category": "Excel",
         "path": "excel/excel-add-toc/"
+    },
+    {
+        "name": "排期日程",
+        "desc": "按天甘特图排布日程，支持每周/每月循环自动铺色，可导入导出 Excel",
+        "category": "Schedule",
+        "path": "schedule/activity-scheduler/"
     }
 ]
