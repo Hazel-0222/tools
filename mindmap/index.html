@@ -412,7 +412,6 @@ const sy = y => y * view.scale + view.oy;
    字体、圆角、连线的粗细全部按 sc 等比例缩放，保证缩放时文字不出框。 */
 function paintTree(ctx, sc, ox, oy, plain) {
   const rad = Math.max(3, Math.min(12, 10 * sc + 2));
-  const rsel = isDark() ? 'rgba(255,255,255,.92)' : 'rgba(11,11,11,.90)';
   ctx.lineCap = 'round';
   for (const n of nodes) {                       // 连线
     if (!n.parent) continue;
@@ -436,10 +435,10 @@ function paintTree(ctx, sc, ox, oy, plain) {
       ctx.strokeStyle = nodeBorder(n, 0.50);
       ctx.lineWidth = lw;
     } else {
-      ctx.strokeStyle = (n === sel) ? rsel
+      ctx.strokeStyle = (n === sel) ? nodeBorder(n, 0.98)   // 选中圈：向该节点自身色系加深，醒目但不发黑
         : (n === hover) ? nodeBorder(n, 0.70)
                         : nodeBorder(n, 0.52);
-      ctx.lineWidth = (n === sel || n === hover) ? 2.5 * lw : lw;
+      ctx.lineWidth = (n === sel) ? 3.2 * lw : (n === hover) ? 2.5 * lw : lw;
     }
     rr(ctx, x, y, w, h, rad);
     ctx.fill(); ctx.stroke();
