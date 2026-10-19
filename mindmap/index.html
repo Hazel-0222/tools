@@ -535,9 +535,15 @@ function renderText(reset) {
 }
 
 function syncFromTree() {                        // 画布编辑 → 回写左侧文字
+  // 注意：不能用 renderText(false)，它会 tree = buildTree(ta.value) 重建整棵对象树，
+  // 把 addChild/addSibling 刚返回的节点孤儿化——之后对它的一切提交都写不进树里（内容"看起来"丢失）。
+  // 这里只回写文字 + 重算布局重绘，保持节点对象身份不变。
   const s = serializeTree(tree);
   ta.value = s.md;
-  renderText(false);
+  layoutTree(tree);
+  document.title = (tree.text || '思维导图') + ' · 草稿板 v2.2';
+  rpt.textContent = '✓ 已渲染 ' + nodes.length + ' 个节点';
+  draw();
   saveNow();
 }
 
@@ -641,7 +647,14 @@ function startEdit(n, selectAll) {
 let lastValue = '', edited = false, editLog = [];
 function trace(m, show) {
   editLog.push(m); if (editLog.length > 60) editLog.shift();
-  if (show) setStatus('✎ ' + m);
+  if (show) {
+    let c = '';
+    if (m.includes('空值')) c = '#d03b3b';            // 红：提交读到空值（需要警惕的分支）
+    else if (m.startsWith('提交')) c = '#1a9c4e';      // 绿：真正的提交
+    else if (m.startsWith('回车')) c = '#b8860b';      // 橙：回车相关（结束/忽略/选词）
+    statusEl.style.color = c;
+    setStatus('✎ ' + m);
+  }
 }
 function commitEdit() {
   if (!editing) return;
@@ -676,8 +689,13 @@ function cancelEdit() {
 }
 nodeEd.addEventListener('keydown', e => {
   e.stopPropagation();
-  if (e.isComposing || e.keyCode === 229) { trace(e.key === 'Enter' ? '回车=确认选词(组词中)' : 'IME键(229)'); return; }
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); trace('回车=结束编辑'); requestAnimationFrame(commitEdit); }  // 推迟一帧：等组合/输入事件落盘后再读值
+  if (e.isComposing || e.keyCode === 229) { trace(e.key === 'Enter' ? '回车=确认选词(组词中,不进提交)' : 'IME键(229)', true); return; }
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    if (!editing) { trace('回车：编辑已结束(第二次回车落在输入框)', true); return; }  // 借鉴：第二次回车落到已提交的输入框，直接忽略，不误开分支
+    trace('回车=结束编辑', true);
+    requestAnimationFrame(commitEdit);  // 推迟一帧：等组合/输入事件落盘后再读值
+  }
   else if (e.key === 'Escape') { e.preventDefault(); trace('取消编辑', true); cancelEdit(); }
 });
 nodeEd.addEventListener('compositionstart', () => { edited = true; });
@@ -1007,6 +1025,22 @@ btnCopy.addEventListener('click', () => {
   );
 });
 btnFit.addEventListener('click', () => { if (tree) fitView(); });
+
+/* 点击状态栏 = 一键复制本次编辑调试日志，直接贴给开发者即可定位 */
+statusEl.addEventListener('click', () => {
+  const txt = editLog.join('\n') || '(暂无编辑日志)';
+  const done = () => { statusEl.style.color = '#1a9c4e'; setStatus('✓ 已复制 ' + editLog.length + ' 条调试日志，粘贴给我即可'); };
+  const legacyCopy = () => {
+    const x = document.createElement('textarea');
+    x.value = txt; x.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
+    document.body.appendChild(x); x.select();
+    try { document.execCommand('copy'); done(); } catch (err) { setStatus('复制失败：请按 F12 输入 editLog.join("\\n")'); }
+    document.body.removeChild(x);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).then(done, legacyCopy);
+  } else legacyCopy();
+});
 
 ta.addEventListener('input', () => {                 // 左侧手改 → 实时重算右侧
   clearTimeout(saveTimer);
