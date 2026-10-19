@@ -625,10 +625,15 @@ function delNode(n) {
 function startEdit(n, selectAll) {
   if (editing) commitEdit();
   editing = n;
-  nodeEd.value = nodeText(n);
+  const initial = nodeText(n);
+  nodeEd.value = initial;
   updateUi();
-  nodeEd.focus();
-  nodeEd.select();
+  nodeEd.focus();                                  // ① 立即聚焦：渲染就绪时首键即可用
+  if (selectAll) nodeEd.select();                  //    同步全选，占位文本可被首键整体替换
+  requestAnimationFrame(() => {                    // ② 兜底：display:none→block 首帧 focus 偶发不生效
+    if (document.activeElement !== nodeEd) { nodeEd.focus(); }
+    if (selectAll && nodeEd.value === initial) nodeEd.select();  // 只对还没输入过的文本做全选，避免打断已开始的输入
+  });
 }
 function commitEdit() {
   if (!editing) return;
@@ -657,6 +662,7 @@ function cancelEdit() {
 }
 nodeEd.addEventListener('keydown', e => {
   e.stopPropagation();
+  if (e.isComposing) return;                 // 中文输入法组词中：Enter/空格只是确认选词，不能当”编辑完成“提交
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitEdit(); }
   else if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
 });
@@ -814,7 +820,23 @@ document.addEventListener('keydown', e => {
     else if (k === 'o') { e.preventDefault(); fileInput.click(); }
     return;
   }
-  if (isTyping() || editing) return;
+  if (editing) {
+    // 编辑进行中：若焦点没落在文本框（首帧聚焦竞态/被抢走），兜底处理，避免按键打空
+    if (document.activeElement !== nodeEd) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitEdit(); }
+      else if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
+      else if (!e.altKey && e.key.length === 1) {
+        e.preventDefault();                       // ③ 终极兜底：手动把字符写进文本框，不依赖焦点
+        const v = nodeEd.value;
+        const ss = nodeEd.selectionStart || 0, se = (nodeEd.selectionEnd || 0) > ss ? nodeEd.selectionEnd : ss;
+        nodeEd.value = v.slice(0, ss) + e.key + v.slice(se);
+        try { nodeEd.setSelectionRange(nodeEd.value.length, nodeEd.value.length); } catch (_) {}
+        nodeEd.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }
+    return;
+  }
+  if (isTyping()) return;
   if (e.key === 'Enter' && !e.shiftKey && sel)      { e.preventDefault(); sel = addSibling(sel, false); sel && startEdit(sel, true); }
   else if (e.key === 'Enter' && e.shiftKey && sel)  { e.preventDefault(); sel = addSibling(sel, true);  sel && startEdit(sel, true); }
   else if (e.key === 'Tab' && !e.shiftKey && sel)   { e.preventDefault(); sel = addChild(sel);          sel && startEdit(sel, true); }
