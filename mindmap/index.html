@@ -41,9 +41,19 @@
   .hint { font-size: 12px; color: var(--ink-muted); white-space: nowrap; }
 
   main { flex: 1; display: flex; min-height: 0; }
-  #side { width: 38%; min-width: 280px; max-width: 620px;
+  #side { width: 25%; min-width: 210px; max-width: 460px;
           display: flex; flex-direction: column; border-right: 1px solid var(--border);
           background: var(--bg-panel); }
+  #side.hidden { display: none; }             /* 收起左栏：画布自动占满 */
+  #splitter { position: relative; width: 12px; flex-shrink: 0; cursor: pointer;
+              background: var(--bg-panel); transition: background 0.15s; }
+  #splitter:hover { background: var(--bg); }
+  #btn-side { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+              width: 20px; height: 46px; padding: 0; display: flex; align-items: center; justify-content: center;
+              font-size: 10px; line-height: 1; color: var(--ink-muted);
+              background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px;
+              box-shadow: 0 1px 4px rgba(0,0,0,.14); cursor: pointer; }
+  #btn-side:hover { color: var(--accent); border-color: var(--accent); }
   textarea { flex: 1; resize: none; border: 0; outline: 0; padding: 14px;
              font: 14px/1.7 "Microsoft YaHei", "微软雅黑", sans-serif;
              background: var(--bg); color: var(--ink); }
@@ -71,6 +81,8 @@
   @media (max-width: 760px) {
     main { flex-direction: column; }
     #side { width: 100%; max-width: none; height: 40%; border-right: 0; border-bottom: 1px solid var(--border); }
+    #splitter { width: 100%; height: 12px; }
+    #btn-side { width: 46px; height: 20px; }
     .hint { display: none; }
   }
 </style>
@@ -96,6 +108,7 @@
   <section id="side">
     <textarea id="editor" spellcheck="false" placeholder="# 我的导图&#10;## 分支一&#10;- 子项&#10;  - 更深的子项"></textarea>
   </section>
+  <div id="splitter" title="收起/展开左侧 Markdown 面板"><button id="btn-side">◀</button></div>
   <section id="stage">
     <canvas id="map" tabindex="0"></canvas>
     <textarea id="node-editor"></textarea>
@@ -141,6 +154,8 @@ const btnCopy    = document.getElementById('btn-copy');
 const btnFit     = document.getElementById('btn-fit');
 const fileInput  = document.getElementById('file');
 const rpt        = document.getElementById('rpt');
+const sideEl     = document.getElementById('side');
+const btnSide    = document.getElementById('btn-side');
 
 /* ---------------- 状态 ---------------- */
 const SAVE_KEY = 'mindmark.draft.v2';
@@ -1080,6 +1095,21 @@ if (saved && saved.startsWith('# 我的导图')
 ta.value = (saved != null && saved !== '') ? saved : SAMPLE;
 renderText(true);
 setStatus('v2.2 · 自动保存已开启 · 双击节点编辑');
+
+/* 左栏收起/展开：状态记住，重开保持上次选择 */
+let sideHidden = false;
+try { sideHidden = localStorage.getItem('mindmark.side.hidden') === '1'; } catch (err) {}
+function applySide() {
+  sideEl.classList.toggle('hidden', sideHidden);
+  btnSide.textContent = sideHidden ? '▶' : '◀';   // 箭头始终指向动作方向：收◀ / 展▶
+  if (tree) fitView();
+}
+btnSide.addEventListener('click', () => {
+  sideHidden = !sideHidden;
+  try { localStorage.setItem('mindmark.side.hidden', sideHidden ? '1' : '0'); } catch (err) {}
+  applySide();
+});
+applySide();
 
 /* 看门狗：若布局时机/尺寸问题导致一像素都没画出来，自动重试并把异常摆上台面 */
 let _wd = 0;
