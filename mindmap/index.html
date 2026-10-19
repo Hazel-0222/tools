@@ -627,10 +627,11 @@ function startEdit(n, selectAll) {
   editing = n;
   const initial = nodeText(n);
   nodeEd.value = initial;
+  nodeEd.style.display = 'block';                  // ① 保证可见：display:none 时 focus() 静默无效，首键必丢
   updateUi();
-  nodeEd.focus();                                  // ① 立即聚焦：渲染就绪时首键即可用
+  nodeEd.focus();                                  // ② 立即聚焦：渲染就绪时首键即可用
   if (selectAll) nodeEd.select();                  //    同步全选，占位文本可被首键整体替换
-  requestAnimationFrame(() => {                    // ② 兜底：display:none→block 首帧 focus 偶发不生效
+  requestAnimationFrame(() => {                    // ③ 兜底：display:none→block 首帧 focus 偶发不生效
     if (document.activeElement !== nodeEd) { nodeEd.focus(); }
     if (selectAll && nodeEd.value === initial) nodeEd.select();  // 只对还没输入过的文本做全选，避免打断已开始的输入
   });
@@ -667,7 +668,25 @@ nodeEd.addEventListener('keydown', e => {
   else if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
 });
 nodeEd.addEventListener('blur', () => { if (editing) commitEdit(); });
-nodeEd.addEventListener('input', () => { nodeEd.style.height = nodeEd.scrollHeight + 'px'; });
+let editMirror = null;                       // 镜像测宽：textarea 会换行，scrollWidth 量不出最长行
+function measureEditText(text) {
+  if (!editMirror) {
+    editMirror = document.createElement('div');
+    editMirror.style.cssText = 'position:absolute;left:-9999px;top:0;visibility:hidden;white-space:pre;pointer-events:none;';
+    document.body.appendChild(editMirror);
+  }
+  editMirror.style.font = getComputedStyle(nodeEd).font;
+  editMirror.textContent = text.replace(/\n/g, ' ');
+  return editMirror.scrollWidth;
+}
+nodeEd.addEventListener('input', () => {   // 随内容自动撑宽/高，避免比节点宽的文本被 overflow:hidden 裁掉
+  nodeEd.style.height = nodeEd.scrollHeight + 'px';
+  const n = editing;
+  if (n) {
+    const nodeW = n.w * view.scale;
+    nodeEd.style.width = Math.max(nodeW, Math.min(measureEditText(nodeEd.value) + 10, cv.clientWidth * 0.92)) + 'px';
+  }
+});
 
 /* ---------------- 导航（方向键） ---------------- */
 function navigate(dir) {
@@ -811,6 +830,9 @@ function isTyping() {
   const ae = document.activeElement;
   return ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT');
 }
+document.addEventListener('compositionstart', () => {   // 输入法已拉起组合：焦点必须落在文本框，否则组合内容无处书写
+  if (editing && document.activeElement !== nodeEd) nodeEd.focus();
+});
 document.addEventListener('keydown', e => {
   const mod = e.ctrlKey || e.metaKey;
   if (mod) {
@@ -825,8 +847,12 @@ document.addEventListener('keydown', e => {
     if (document.activeElement !== nodeEd) {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitEdit(); }
       else if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
+      else if (e.keyCode === 229 || e.key === 'Process' || e.key.length !== 1) {
+        e.preventDefault();                       // ④ 输入法/死键：抢回焦点，让随后组合能送进文本框
+        nodeEd.focus();
+      }
       else if (!e.altKey && e.key.length === 1) {
-        e.preventDefault();                       // ③ 终极兜底：手动把字符写进文本框，不依赖焦点
+        e.preventDefault();                       // ⑤ 终极兜底：手动把字符写进文本框，不依赖焦点
         const v = nodeEd.value;
         const ss = nodeEd.selectionStart || 0, se = (nodeEd.selectionEnd || 0) > ss ? nodeEd.selectionEnd : ss;
         nodeEd.value = v.slice(0, ss) + e.key + v.slice(se);
