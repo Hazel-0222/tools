@@ -18,6 +18,9 @@
 ### Schedule
 - [activity-scheduler](schedule/activity-scheduler/) — 排期日程：按天甘特图排布，支持每周/每月循环自动铺色，可导入导出 Excel
 
+### Mind
+- [mindmap](mindmap/) — 思维导图：Markdown 与脑图双向同步，支持拖拽调整、导出图片
+
 ## 使用方式
 
 直接浏览器打开对应目录下的 `index.html`，或通过 GitHub Pages 访问：

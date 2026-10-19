@@ -34,5 +34,11 @@
         "desc": "按天甘特图排布日程，支持每周/每月循环自动铺色，可导入导出 Excel",
         "category": "Schedule",
         "path": "schedule/activity-scheduler/"
+    },
+    {
+        "name": "思维导图",
+        "desc": "Markdown 与脑图双向同步编辑，支持拖拽调整、导出图片与 Markdown",
+        "category": "Mind",
+        "path": "mindmap/"
     }
 ]

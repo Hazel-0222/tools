@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>思维导图 · 草稿板 v2.2</title>
+<style>
+  :root { color-scheme: light dark; }
+  :root:where(:not([data-theme="dark"])) {
+    --bg: #fcfcfb; --bg-panel: #f2f2ee; --border: #e1e0d9;
+    --ink: #0b0b0b; --ink-2: #52514e; --ink-muted: #898781;
+    --accent: #2a78d6; --btn: #ffffff; --btn-hover: #eef0f5;
+  }
+  :root[data-theme="dark"] {
+    --bg: #1a1a19; --bg-panel: #232322; --border: #2c2c2a;
+    --ink: #ffffff; --ink-2: #c3c2b7; --ink-muted: #898781;
+    --accent: #3987e5; --btn: #232322; --btn-hover: #2e2e2c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      --bg: #1a1a19; --bg-panel: #232322; --border: #2c2c2a;
+      --ink: #ffffff; --ink-2: #c3c2b7; --ink-muted: #898781;
+      --accent: #3987e5; --btn: #232322; --btn-hover: #2e2e2c;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { display: flex; flex-direction: column;
+         font-family: "Microsoft YaHei", "微软雅黑", system-ui, sans-serif;
+         background: var(--bg); color: var(--ink); }
+
+  header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+           padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--bg-panel); }
+  header h1 { font-size: 14px; font-weight: 600; margin: 0 8px 0 0; white-space: nowrap; }
+  button { font: inherit; font-size: 13px; color: var(--ink);
+           background: var(--btn); border: 1px solid var(--border); border-radius: 6px;
+           padding: 4px 12px; cursor: pointer; }
+  button:hover { background: var(--btn-hover); }
+  button.primary { color: #fff; background: var(--accent); border-color: var(--accent); }
+  #status { margin-left: auto; font-size: 12px; color: var(--ink-muted); white-space: nowrap; }
+  .hint { font-size: 12px; color: var(--ink-muted); white-space: nowrap; }
+
+  main { flex: 1; display: flex; min-height: 0; }
+  #side { width: 38%; min-width: 280px; max-width: 620px;
+          display: flex; flex-direction: column; border-right: 1px solid var(--border);
+          background: var(--bg-panel); }
+  textarea { flex: 1; resize: none; border: 0; outline: 0; padding: 14px;
+             font: 14px/1.7 "Microsoft YaHei", "微软雅黑", sans-serif;
+             background: var(--bg); color: var(--ink); }
+  #stage { flex: 1; position: relative; overflow: hidden; min-width: 0; }
+  #map { position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+         cursor: grab; outline: none; touch-action: none; background: var(--bg); }
+  #map.dragging { cursor: grabbing; }
+  #map.hoverable { cursor: pointer; }
+
+  #overlay { position: absolute; inset: 0; display: flex; flex-direction: column;
+             align-items: center; justify-content: center; gap: 10px;
+             color: var(--ink-muted); font-size: 14px; text-align: center;
+             pointer-events: none; padding: 24px; }
+  #overlay code { font-size: 13px; background: var(--bg-panel); padding: 2px 6px; border-radius: 4px; }
+  #overlay[hidden] { display: none; }   /* 关键：display:flex 会覆盖 hidden 属性，必须显式声明（否则引导文字一直浮在画布上） */
+
+  #node-editor { position: absolute; z-index: 5; display: none; resize: none; overflow: hidden;
+                 font: 13px/1.45 "Microsoft YaHei","微软雅黑",sans-serif; text-align: center;
+                 background: var(--bg); color: var(--ink); border: 2px solid var(--accent);
+                 border-radius: 9px; box-shadow: 0 3px 14px rgba(0,0,0,.22); outline: none; }
+
+  #actions { position: absolute; z-index: 6; display: none; align-items: center; gap: 4px; pointer-events: none; }
+  #actions button { padding: 2px 9px; font-size: 12px; box-shadow: 0 1px 6px rgba(0,0,0,.15); white-space: nowrap; pointer-events: auto; }  /* 浮层本身不挡拖拽，只有按钮可点 */
+
+  @media (max-width: 760px) {
+    main { flex-direction: column; }
+    #side { width: 100%; max-width: none; height: 40%; border-right: 0; border-bottom: 1px solid var(--border); }
+    .hint { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🧠 思维导图 · 草稿板</h1>
+  <button id="btn-new" title="清空草稿">新建</button>
+  <button id="btn-sample" title="载入示例">示例</button>
+  <button id="btn-import" title="导入 .md / .txt 文件">导入</button>
+  <button class="primary" id="btn-export" title="导出为 .md 文件 (Ctrl+S)">导出 .md</button>
+  <button id="btn-img" title="把当前导图导出为高清 PNG 图片">导出图片</button>
+  <button id="btn-copy" title="复制 Markdown 到剪贴板">复制</button>
+  <button id="btn-fit" title="适应窗口">适应</button>
+  <input type="file" id="file" accept=".md,.markdown,.txt,text/plain" hidden>
+  <span class="hint" title="操作：双击改字 · Enter 同级 · Tab 子级 · Delete 删除 · 方向键导航 · 直接打字编辑 · 拖拽换父/排序 · Alt+点击 跳原文 · Ctrl+Z 撤销">双击改字 · Enter兄弟 · Tab子级 · Del删除 · 拖拽移动</span>
+  <span id="rpt" class="hint" style="color: var(--accent)"></span>
+  <span id="status"></span>
+</header>
+
+<main>
+  <section id="side">
+    <textarea id="editor" spellcheck="false" placeholder="# 我的导图&#10;## 分支一&#10;- 子项&#10;  - 更深的子项"></textarea>
+  </section>
+  <section id="stage">
+    <canvas id="map" tabindex="0"></canvas>
+    <textarea id="node-editor"></textarea>
+    <div id="actions">
+      <button id="act-child"  title="添加子节点 (Tab)">＋子</button>
+      <button id="act-sibling" title="添加同级 (Enter)">＋同</button>
+      <button id="act-jump"   title="跳转到原文 (Alt+点击)">↗原文</button>
+      <button id="act-del"    title="删除节点 (Delete)">删</button>
+    </div>
+    <div id="overlay" hidden>
+      <div>← 在左侧输入 Markdown，或直接在右侧拖拽编辑</div>
+      <div><code># 标题</code> · <code>## 分支</code> · <code>- 子项(缩进嵌套)</code> · 内容自动保存</div>
+    </div>
+  </section>
+</main>
+
+<script>
+'use strict';
+/* ============================================================
+ * 思维导图 · 草稿板 v2
+ * 左栏 Markdown 实时渲染；右栏可直接编辑（XMind 风格）。
+ * Markdown 即存档介质。画布编辑会同步回写左侧文本。
+ * ============================================================ */
+
+/* ---------------- DOM ---------------- */
+const ta         = document.getElementById('editor');
+const cv         = document.getElementById('map');
+const ctx2       = cv.getContext('2d');
+const nodeEd     = document.getElementById('node-editor');
+const actionsBox = document.getElementById('actions');
+const actChild   = document.getElementById('act-child');
+const actSibling = document.getElementById('act-sibling');
+const actJump    = document.getElementById('act-jump');
+const actDel     = document.getElementById('act-del');
+const overlay    = document.getElementById('overlay');
+const statusEl   = document.getElementById('status');
+const btnNew     = document.getElementById('btn-new');
+const btnSample  = document.getElementById('btn-sample');
+const btnImport  = document.getElementById('btn-import');
+const btnExport  = document.getElementById('btn-export');
+const btnImg     = document.getElementById('btn-img');
+const btnCopy    = document.getElementById('btn-copy');
+const btnFit     = document.getElementById('btn-fit');
+const fileInput  = document.getElementById('file');
+const rpt        = document.getElementById('rpt');
+
+/* ---------------- 状态 ---------------- */
+const SAVE_KEY = 'mindmark.draft.v2';
+const view = { scale: 1, ox: 0, oy: 0, fitted: true };
+let tree = null, nodes = [];
+let sel = null, hover = null, editing = null, drop = null, drag = null;
+let undoStack = [];
+let _drawn = 0;                                  // 实际完成绘制的次数（看门狗用）
+const mqDark = matchMedia('(prefers-color-scheme: dark)');
+let theme = mqDark.matches ? 'dark' : 'light';
+mqDark.addEventListener('change', () => { theme = mqDark.matches ? 'dark' : 'light'; draw(); });
+
+/* ---------------- 颜色（Notion 文本默认配色，8 色） ---------------- */
+const NOTION = [
+  { light: '#9F6B53', dark: '#CB9B83' },   // 棕
+  { light: '#D9730D', dark: '#DFA14F' },   // 橙
+  { light: '#CB912F', dark: '#D6B460' },   // 黄
+  { light: '#448361', dark: '#7FA686' },   // 绿
+  { light: '#337EA9', dark: '#5FA0C4' },   // 蓝
+  { light: '#9065B0', dark: '#B089C1' },   // 紫
+  { light: '#C14C8A', dark: '#D88AB5' },   // 粉
+  { light: '#D44C47', dark: '#E58B87' },   // 红
+];
+function hueOf(i) { return Math.abs(i) % 8; }
+function isDark() { return theme === 'dark'; }
+function mix(a, b, t) {                    // 两 hex 颜色插值：t=0 纯 a，t=1 纯 b
+  const pa = [1, 3, 5].map(i => parseInt(a.slice(i, i + 2), 16));
+  const pb = [1, 3, 5].map(i => parseInt(b.slice(i, i + 2), 16));
+  const c = pa.map((v, i) => Math.round(v + (pb[i] - v) * t));
+  return '#' + c.map(v => v.toString(16).padStart(2, '0')).join('');
+}
+function notion(n) { return NOTION[Math.max(0, Math.min(7, n.hue | 0))]; }
+function nodeBg(n) {                       // 卡片底：浅色=白底淡彩；深色=深底彩调
+  if (n.depth === 0) return isDark() ? NOTION[4].dark : NOTION[4].light;
+  const c = notion(n);
+  const base = isDark() ? '#1a1a19' : '#ffffff';
+  const t = isDark() ? Math.min(0.42, 0.24 + n.depth * 0.06)
+                     : Math.min(0.20, 0.10 + n.depth * 0.025);
+  return mix(base, isDark() ? c.dark : c.light, t);
+}
+function nodeInk(n) {                      // 文字：根=白；其余=Notion 彩色文本（略加深保可读）
+  if (n.depth === 0) return '#ffffff';
+  const c = notion(n);
+  return isDark() ? mix(c.dark, '#ffffff', 0.22) : mix(c.light, '#000000', 0.12);
+}
+function nodeBorder(n, t) {                  // 边框随模块底色：向该节点自身色系加深（t=强度）
+  const root = isDark() ? NOTION[4].dark : NOTION[4].light;
+  const hue = (n.depth === 0) ? root : (isDark() ? notion(n).dark : notion(n).light);
+  return mix(nodeBg(n), hue, t);
+}
+function fillFor(n) { return nodeBg(n); }
+function strokeFor(n) { return 'transparent'; }
+function lineFor(n) {                      // 连线：Notion 色向底色靠拢的半透明
+  const c = notion(n);
+  return isDark() ? mix(c.dark, '#ffffff', 0.28) : mix(c.light, '#ffffff', 0.30);
+}
+
+/* ---------------- Markdown 解析 ---------------- */
+/* kind: root | h(标题) | l(列表) | n(编号) | p(正文) | task(任务)
+   task: null | ' ' | 'x'                                     */
+function cleanText(raw) {
+  return raw
+    .replace(/`([^`]*)`/g, '$1')
+    .replace(/\*\*([^*]*)\*\*/g, '$1')
+    .replace(/\*([^*]*)\*/g, '$1')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/<[^>]*>/g, '')
+    .trim();
+}
+
+function buildTree(src) {
+  const root = { text: '未命名', children: [], line: 0, depth: 0, parent: null, kind: 'root' };
+  let titleSet = false;
+  const headSlots = {};
+  let listStack = [];
+  let base = root;
+
+  const insert = (parent, text, line, kind, task) => {
+    const n = { text: text || '(空)', children: [], line, depth: parent.depth + 1,
+                parent, kind: kind || 'l', task: task || null };
+    parent.children.push(n);
+    return n;
+  };
+  const taskMatch = t => t.match(/^\[([ xX])\]\s*(.*)$/);
+  const display = (t, task) => {
+    if (task === null && /^[☐☑] /.test(t)) { t = t.replace(/^[☐☑] /, ''); }
+    return t;
+  };
+
+  const lines = src.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const trim = raw.trim();
+    if (!trim) continue;
+    if (/^\s*(?:<!--)/.test(raw)) continue;
+    if (/^\s*[-*_]{3,}\s*$/.test(trim)) continue;
+
+    const hm = trim.match(/^(#{1,6})\s+(.*)$/);
+    if (hm) {
+      const lev = hm[1].length;
+      const text = cleanText(hm[2]);
+      if (lev === 1 && !titleSet && root.children.length === 0) {
+        root.text = text || '未命名'; root.line = i; titleSet = true;
+        continue;
+      }
+      let parent = root;
+      for (let d = lev - 1; d >= 1; d--) if (headSlots[d]) { parent = headSlots[d]; break; }
+      const n = insert(parent, text, i, 'h');
+      headSlots[lev] = n;
+      for (const k in headSlots) if (+k > lev) delete headSlots[k];
+      listStack.length = 0;
+      base = n;
+      continue;
+    }
+
+    const indent = raw.replace(/\t/g, '  ').match(/^ */)[0].length;
+    const mTask = taskMatch(trim);
+    const mBullet = trim.match(/^[-*+]\s*(.*)$/);
+    const mNum = trim.match(/^(\d+)[.、)]\s*(.*)$/);
+
+    let kind, task = null, text;
+    if (mTask) { kind = 'task'; task = (mTask[1].toLowerCase() === 'x') ? 'x' : ' '; text = cleanText(mTask[2]); }
+    else if (mBullet && mBullet[1] !== undefined && /^[-*+]/.test(trim[0])) { kind = 'l'; text = cleanText(mBullet[1]); }
+    else if (mNum) { kind = 'n'; text = cleanText(mNum[2]); }
+    else { kind = 'p'; text = cleanText(trim); }
+
+    if (kind === 'p') {
+      const n = insert(base, text, i, 'p', task);
+      listStack.length = 0;
+      continue;
+    }
+    if (listStack.length === 0 && indent > 0) listStack.push({ indent: 0, node: base });
+    while (listStack.length && indent <= listStack[listStack.length - 1].indent) listStack.pop();
+    const parent = listStack.length ? listStack[listStack.length - 1].node : base;
+    const n = insert(parent, display(text, task), i, kind, task);
+    listStack.push({ indent, node: n });
+  }
+  return root;
+}
+
+/* ---------------- Markdown 序列化（画布编辑后回写） ---------------- */
+function nodeText(n) {   // 带任务标记的显示文本
+  if (n.kind === 'task') return (n.task === 'x' ? '☑ ' : '☐ ') + n.text;
+  return n.text;
+}
+function serializeTree(root) {
+  const mdLines = [];
+  let line;
+  line = '# ' + (root.text || '未命名'); mdLines.push(line);
+  (function write(n) {
+    for (const c of n.children) {
+      const headingChain = c.kind === 'h' && (n.kind === 'h' || n.kind === 'root');
+      if (headingChain && c.depth >= 1) {
+        line = '#'.repeat(c.depth + 1) + ' ' + c.text; mdLines.push(line);
+      } else {
+        var pre = (c.kind === 'task') ? (c.task === 'x' ? '- [x] ' : '- [ ] ') : '- ';
+        line = '  '.repeat(c.depth - 1) + pre + c.text; mdLines.push(line);
+      }
+      write(c);
+    }
+  })(root);
+  // 回填每个节点的源行号，保证「跳转原文」在编辑后仍准确
+  let li = 0;
+  root.line = li; li++;
+  (function fill(n) {
+    for (const c of n.children) { c.line = li; li++; fill(c); }
+  })(root);
+  return { md: mdLines.join('\n') };
+}
+
+/* ============================================================
+   ======================== PART2 ========================
+============================================================ */
+
+/* ---------------- 布局 ---------------- */
+const PAD_X = 48, H_GAP = 60, V_GAP = 16, PAD_T = 24;
+const MAX_TEXT_W = 240, NODE_PAD_X = 14, NODE_PAD_Y = 9, LINE_H = 20, MIN_W = 46;
+const FONT_PX = [16, 14, 13];
+const FONTS = ['600 16px "Microsoft YaHei","微软雅黑",sans-serif',
+               '600 14px "Microsoft YaHei","微软雅黑",sans-serif',
+               '13px "Microsoft YaHei","微软雅黑",sans-serif'];
+
+function wrap(text, maxW) {
+  const out = []; let line = '';
+  for (const ch of text) {
+    if (ch === '\n') { out.push(line); line = ''; continue; }
+    if (ctx2.measureText(line + ch).width > maxW) {
+      out.push(line);
+      line = (ch === ' ') ? '' : ch;
+    } else line += ch;
+  }
+  out.push(line);
+  if (out.length && out[out.length - 1] === '') out.pop();
+  return out.length ? out : [''];
+}
+
+function layoutTree(root) {
+  nodes = [];
+  const all = [];
+  (function flat(n) { all.push(n); n.children.forEach(flat); })(root);
+  nodes = all;                       // ← 把铺平后的节点列表交给绘制/命中检测（此前漏了这句，画布一直画空列表）
+
+  // 分支色相：根的子节点按固定色板顺序，后代继承父分支色
+  root.hue = hueOf(0);
+  let bi = 0;
+  for (const c of root.children) c.hue = hueOf(bi++);
+  (function hueDown(n) {
+    for (const c of n.children) { if (n.depth > 0) c.hue = n.hue; hueDown(c); }
+  })(root);
+
+  for (const n of all) {
+    const d = Math.min(n.depth, 2);
+    ctx2.font = FONTS[d];
+    const wrapped = wrap(nodeText(n), MAX_TEXT_W - 2 * NODE_PAD_X);
+    n.lines = wrapped;
+    let w = MIN_W;
+    for (const ln of wrapped) w = Math.max(w, ctx2.measureText(ln).width + 2 * NODE_PAD_X);
+    n.w = Math.min(w, MAX_TEXT_W);
+    n.h = wrapped.length * LINE_H + 2 * NODE_PAD_Y;
+  }
+
+  let yCursor = PAD_T;
+  (function assignY(n) {
+    if (!n.children.length) {
+      n.top = yCursor; n.bottom = yCursor + n.h; yCursor = n.bottom + V_GAP;
+    } else {
+      n.children.forEach(assignY);
+      n.top = n.children[0].top; n.bottom = n.children[n.children.length - 1].bottom;
+    }
+    n.cy = (n.top + n.bottom) / 2;
+    if (n.children.length && (n.bottom - n.top) < n.h) {
+      const mid = (n.top + n.bottom) / 2;
+      n.top = mid - n.h / 2; n.bottom = mid + n.h / 2;
+    }
+  })(root);
+
+  let maxD = 0;
+  for (const n of all) maxD = Math.max(maxD, n.depth);
+  const colW = [];
+  for (let d = 0; d <= maxD; d++) {
+    let mw = 0;
+    for (const n of all) if (n.depth === d) mw = Math.max(mw, n.w);
+    colW[d] = mw + H_GAP;
+  }
+  for (const n of all) {
+    n.lx = PAD_X;
+    for (let d = 0; d < n.depth; d++) n.lx += colW[d];
+  }
+  const dim = { W: PAD_X + colW.reduce((a, b) => a + b, 0), H: Math.max(yCursor, 100) };
+  root._dim = dim;
+  return dim;
+}
+
+/* ---------------- 绘制 ---------------- */
+function rr(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+const sx = x => x * view.scale + view.ox;
+const sy = y => y * view.scale + view.oy;
+
+/* 通用绘制：屏幕画布与导出图片共用。
+   sc=缩放系数，ox/oy=偏移，plain=导出模式（取消选中/悬停高亮，统一细描边）。
+   字体、圆角、连线的粗细全部按 sc 等比例缩放，保证缩放时文字不出框。 */
+function paintTree(ctx, sc, ox, oy, plain) {
+  const rad = Math.max(3, Math.min(12, 10 * sc + 2));
+  const rsel = isDark() ? 'rgba(255,255,255,.92)' : 'rgba(11,11,11,.90)';
+  ctx.lineCap = 'round';
+  for (const n of nodes) {                       // 连线
+    if (!n.parent) continue;
+    const p = n.parent;
+    const x1 = p.lx * sc + ox + p.w * sc, y1 = p.cy * sc + oy;
+    const x2 = n.lx * sc + ox, y2 = n.cy * sc + oy;
+    const bend = Math.min(30, Math.max(8, (x2 - x1) * 0.5)) * Math.max(1, sc);
+    ctx.strokeStyle = lineFor(n);
+    ctx.lineWidth = 1.5 * sc;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.bezierCurveTo(x1 + bend, y1, x2 - bend, y2, x2, y2);
+    ctx.stroke();
+  }
+  for (const n of nodes) {                       // 节点
+    const x = n.lx * sc + ox, y = (n.cy - n.h / 2) * sc + oy;
+    const w = n.w * sc, h = n.h * sc;
+    ctx.fillStyle = fillFor(n);
+    const lw = Math.max(1, sc);
+    if (plain) {
+      ctx.strokeStyle = nodeBorder(n, 0.50);
+      ctx.lineWidth = lw;
+    } else {
+      ctx.strokeStyle = (n === sel) ? rsel
+        : (n === hover) ? nodeBorder(n, 0.70)
+                        : nodeBorder(n, 0.52);
+      ctx.lineWidth = (n === sel || n === hover) ? 2.5 * lw : lw;
+    }
+    rr(ctx, x, y, w, h, rad);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = nodeInk(n);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = (n.depth < 2 ? '600 ' : '')
+      + Math.max(4, Math.round(FONT_PX[Math.min(n.depth, 2)] * sc))
+      + 'px "Microsoft YaHei","微软雅黑",sans-serif';
+    const lh = LINE_H * sc;
+    let ty = y + h / 2 - ((n.lines.length - 1) * lh) / 2;
+    for (const ln of n.lines) { ctx.fillText(ln, x + w / 2, ty); ty += lh; }
+  }
+}
+
+function draw() {
+  const dpr = window.devicePixelRatio || 1;
+  const cw = cv.clientWidth, ch = cv.clientHeight;
+  if (cw === 0 || ch === 0) { requestAnimationFrame(draw); return; }
+  if (cv.width !== Math.round(cw * dpr)) cv.width = Math.round(cw * dpr);
+  if (cv.height !== Math.round(ch * dpr)) cv.height = Math.round(ch * dpr);
+  ctx2.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx2.clearRect(0, 0, cw, ch);
+  _drawn++;
+
+  if (!tree) { overlay.hidden = false; updateUi(); return; }
+  overlay.hidden = true;
+
+  paintTree(ctx2, view.scale, view.ox, view.oy, false);
+
+  if (ptr && ptr.mode === 'drag-node' && ptr.gx !== undefined) {   // 拖拽中的幽灵节点跟随光标
+    const n = ptr.node;
+    const w = n.w * view.scale, h = n.h * view.scale;
+    const x = sx(ptr.gx - n.w / 2), y = sy(ptr.gy - n.h / 2);
+    ctx2.save();
+    ctx2.globalAlpha = 0.62;
+    ctx2.fillStyle = fillFor(n);
+    ctx2.strokeStyle = lineFor(n);
+    ctx2.lineWidth = 1.5 * Math.max(1, view.scale);
+    rr(ctx2, x, y, w, h, Math.max(3, Math.min(12, 10 * view.scale + 2))); ctx2.fill(); ctx2.stroke();
+    ctx2.fillStyle = nodeInk(n);
+    ctx2.font = (n.depth < 2 ? '600 ' : '')
+      + Math.max(4, Math.round(FONT_PX[Math.min(n.depth, 2)] * view.scale))
+      + 'px "Microsoft YaHei","微软雅黑",sans-serif';
+    ctx2.textAlign = 'center'; ctx2.textBaseline = 'middle';
+    const lh = LINE_H * view.scale;
+    let ty = y + h / 2 - ((n.lines.length - 1) * lh) / 2;
+    for (const ln of n.lines) { ctx2.fillText(ln, x + w / 2, ty); ty += lh; }
+    ctx2.restore();
+  }
+
+  if (drop) {                                    // 拖拽落点指示
+    ctx2.save();
+    ctx2.strokeStyle = isDark() ? '#7fb3ff' : '#1a56d6';
+    ctx2.lineWidth = 2;
+    ctx2.setLineDash([7, 5]);
+    if (drop.type === 'child') {
+      const t = drop.target;
+      rr(ctx2, sx(t.lx - 5), sy(t.cy - t.h / 2 - 5), (t.w + 10) * view.scale, (t.h + 10) * view.scale, 12);
+      ctx2.stroke();
+    } else if (drop.type === 'slice') {
+      const p = drop.parent;
+      ctx2.beginPath();
+      ctx2.moveTo(sx(p.lx + p.w + 8), sy(drop.y));
+      ctx2.lineTo(sx(p.lx + p.w + H_GAP * 0.8), sy(drop.y));
+      ctx2.stroke();
+    }
+    ctx2.restore();
+  }
+
+  updateUi();
+}
+
+/* ---------------- 视图 ---------------- */
+function fitView() {
+  if (!tree) return;
+  const root = tree;
+  const dim = root._dim || layoutTree(root);
+  const cw = cv.clientWidth, ch = cv.clientHeight;
+  if (!cw || !ch) { setTimeout(fitView, 120); return; }   // 尺寸未就绪 → 稍后重试而非静默放弃
+  const scale = Math.max(0.05, Math.min(1, (cw - 40) / dim.W, (ch - 40) / dim.H));
+  view.scale = scale; view.fitted = true;
+  view.ox = (cw - dim.W * scale) / 2;
+  view.oy = (ch - dim.H * scale) / 2;
+  draw();
+}
+
+function renderText(reset) {
+  tree = buildTree(ta.value);
+  layoutTree(tree);
+  document.title = (tree.text || '思维导图') + ' · 草稿板 v2.2';
+  rpt.textContent = '✓ 已渲染 ' + nodes.length + ' 个节点';
+  if (reset) fitView(); else draw();
+}
+
+function syncFromTree() {                        // 画布编辑 → 回写左侧文字
+  const s = serializeTree(tree);
+  ta.value = s.md;
+  renderText(false);
+  saveNow();
+}
+
+/* ---------------- 命中检测 ---------------- */
+function hitTest(px, py) {
+  const wx = (px - view.ox) / view.scale, wy = (py - view.oy) / view.scale;
+  for (let i = nodes.length - 1; i >= 0; i--) {
+    const n = nodes[i];
+    if (wx >= n.lx && wx <= n.lx + n.w && wy >= n.cy - n.h / 2 && wy <= n.cy + n.h / 2) return n;
+  }
+  return null;
+}
+
+function setStatus(t) { statusEl.textContent = t; }
+
+function jumpTo(n) {
+  ta.focus();
+  const lns = ta.value.split('\n');
+  let off = 0;
+  const line = Math.max(0, Math.min(n.line, lns.length - 1));
+  for (let i = 0; i < line; i++) off += lns[i].length + 1;
+  const end = off + (lns[line] || '').length;
+  ta.setSelectionRange(off, end);
+  ta.scrollTop = (line / Math.max(1, lns.length)) * Math.max(0, ta.scrollHeight - ta.clientHeight);
+  setStatus('已定位到第 ' + (line + 1) + ' 行');
+}
+
+/* ---------------- 撤销 ---------------- */
+function pushUndo() {
+  if (undoStack.length > 100) undoStack.shift();
+  undoStack.push(ta.value);
+}
+function undo() {
+  const prev = undoStack.pop();
+  if (prev === undefined) { setStatus('没有可撤销的操作'); return; }
+  ta.value = prev;
+  renderText(true);
+  sel = null;
+  saveNow('已撤销 Ctrl+Z');
+}
+
+/* ---------------- 结构操作 ---------------- */
+function makeNode(parent, kind) {
+  return { text: '新分支', children: [], parent, depth: parent.depth + 1,
+           line: 0, kind: kind || 'l', task: null };
+}
+function addSibling(n, before) {
+  if (!n || n.depth === 0) return null;
+  pushUndo();
+  const s = makeNode(n.parent, (n.kind === 'h' ? 'h' : 'l'));
+  const arr = n.parent.children;
+  arr.splice(arr.indexOf(n) + (before ? 0 : 1), 0, s);
+  layoutTree(tree); syncFromTree();
+  return s;
+}
+function addChild(n) {
+  if (!n) return null;
+  pushUndo();
+  const c = makeNode(n, 'l');
+  n.children.push(c);
+  layoutTree(tree); syncFromTree();
+  return c;
+}
+function promote(n) {                            // Shift+Tab：升级一层（成为父节点的兄弟）
+  if (!n || n.depth <= 1) return;
+  pushUndo();
+  const gp = n.parent.parent;
+  const arr = n.parent.children;
+  arr.splice(arr.indexOf(n), 1);
+  const gi = gp.children.indexOf(n.parent);
+  n.parent = gp; n.depth = gp.depth + 1;
+  gp.children.splice(gi + 1, 0, n);
+  layoutTree(tree); syncFromTree();
+}
+function delNode(n) {
+  if (!n || n.depth === 0) return;
+  pushUndo();
+  const arr = n.parent.children;
+  arr.splice(arr.indexOf(n), 1);
+  if (sel === n) sel = null;
+  layoutTree(tree); syncFromTree();
+}
+
+/* ---------------- 就地编辑（XMind 双击改字） ---------------- */
+function startEdit(n, selectAll) {
+  if (editing) commitEdit();
+  editing = n;
+  nodeEd.value = nodeText(n);
+  updateUi();
+  nodeEd.focus();
+  nodeEd.select();
+}
+function commitEdit() {
+  if (!editing) return;
+  const n = editing;
+  const v = nodeEd.value.replace(/\r?\n/g, ' ').trim();
+  editing = null;
+  pushUndo();
+  const m = v.match(/^([☐☑])\s*(.*)$/);
+  if (m) {
+    n.kind = 'task'; n.task = (m[1] === '☑') ? 'x' : ' ';
+    n.text = m[2] || '(空)';
+  } else {
+    if (n.kind === 'task') n.kind = 'l';
+    n.task = null;
+    n.text = v || '(空)';
+  }
+  layoutTree(tree); syncFromTree();
+  sel = n;
+  cv.focus();
+}
+function cancelEdit() {
+  editing = null;
+  cv.focus();
+  updateUi();
+  draw();
+}
+nodeEd.addEventListener('keydown', e => {
+  e.stopPropagation();
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitEdit(); }
+  else if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
+});
+nodeEd.addEventListener('blur', () => { if (editing) commitEdit(); });
+nodeEd.addEventListener('input', () => { nodeEd.style.height = nodeEd.scrollHeight + 'px'; });
+
+/* ---------------- 导航（方向键） ---------------- */
+function navigate(dir) {
+  if (!tree) return;
+  let target = sel || tree;
+  if (dir === 'up' || dir === 'down') {
+    if (!target.parent) return;
+    const arr = target.parent.children;
+    let i = arr.indexOf(target);
+    i = (dir === 'up') ? i - 1 : i + 1;
+    if (i < 0 || i >= arr.length) return;
+    target = arr[i];
+  } else if (dir === 'left') {
+    if (!target.parent) return;
+    target = target.parent;
+  } else {
+    if (target.children.length) target = target.children[0];
+  }
+  sel = target;
+  draw();
+}
+
+/* ---------------- 拖拽（换父 / 排序） ---------------- */
+let ptr = null;                                  // {x,y,oox,ooy,mode,node}
+function computeDrop(node, wx, wy) {
+  const inSub = t => { let a = t; while (a) { if (a === node) return true; a = a.parent; } return false; };
+  for (let i = nodes.length - 1; i >= 0; i--) {
+    const t = nodes[i];
+    if (t === node || inSub(t)) continue;
+    if (wx >= t.lx && wx <= t.lx + t.w && wy >= t.cy - t.h / 2 && wy <= t.cy + t.h / 2)
+      return { type: 'child', target: t };
+  }
+  const sibs = node.parent.children.filter(s => s !== node);
+  let best = null, bestD = 1e9;
+  for (const s of sibs) { const d = Math.abs(s.cy - wy); if (d < bestD) { bestD = d; best = s; } }
+  if (best && Math.abs(wx - best.lx) < best.w + MAX_TEXT_W * 0.5)
+    return { type: 'slice', parent: node.parent, y: wy, anchor: best, after: wy > best.cy };
+  return null;
+}
+function onDown(e) {
+  e.preventDefault();
+  if (editing) { commitEdit(); return; }
+  try { cv.setPointerCapture(e.pointerId); } catch (err) {}   // 拖出画布也不丢事件
+  cv.focus();
+  const cvt = cv.getBoundingClientRect();
+  const p = hitTest(e.clientX - cvt.left, e.clientY - cvt.top);
+  if (e.altKey && p) { sel = p; jumpTo(p); return; }
+  sel = p || null;
+  hover = null;
+  if (p && p.depth > 0) {
+    ptr = { x: e.clientX, y: e.clientY, oox: view.ox, ooy: view.oy,
+            gx: p.lx + p.w / 2, gy: p.cy, mode: 'maybe-node', node: p };
+  } else {
+    ptr = { x: e.clientX, y: e.clientY, oox: view.ox, ooy: view.oy, mode: 'pan' };
+  }
+  cv.classList.add('dragging'); cv.classList.remove('hoverable');
+  draw();
+}
+function onMove(e) {
+  if (!ptr) {
+    const cvt = cv.getBoundingClientRect();
+    const n = hitTest(e.clientX - cvt.left, e.clientY - cvt.top);
+    if (hover !== n) { hover = n; cv.classList.toggle('hoverable', !ptr && !!n); draw(); }
+    return;
+  }
+  const dx = e.clientX - ptr.x, dy = e.clientY - ptr.y;
+  if (ptr.mode === 'pan') {
+    view.ox = ptr.oox + dx; view.oy = ptr.ooy + dy; view.fitted = false;
+    draw(); return;
+  }
+  if (ptr.mode === 'maybe-node' && Math.abs(dx) + Math.abs(dy) < 8) return;
+  if (ptr.mode === 'maybe-node') {
+    ptr.mode = 'drag-node'; drop = null;
+    setStatus('拖到节点上=设为子级 · 拖到兄弟缝隙=排序 · 放到空白处=取消');
+  }
+  const cvt = cv.getBoundingClientRect();
+  ptr.gx = (e.clientX - cvt.left - view.ox) / view.scale;
+  ptr.gy = (e.clientY - cvt.top - view.oy) / view.scale;
+  drop = computeDrop(ptr.node, ptr.gx, ptr.gy);
+  draw();
+}
+function applyDrop() {
+  if (!drop || !ptr || ptr.mode !== 'drag-node') { drop = null; return; }
+  const n = ptr.node;
+  pushUndo();
+  const arr = n.parent.children;
+  arr.splice(arr.indexOf(n), 1);
+  if (drop.type === 'child') {
+    n.parent = drop.target; n.depth = drop.target.depth + 1;
+    drop.target.children.push(n);
+    setStatus('已把「' + n.text + '」移到「' + drop.target.text + '」下');
+  } else {
+    const p = drop.parent;
+    n.parent = p; n.depth = p.depth + 1;
+    const idx = p.children.indexOf(drop.anchor) + (drop.after ? 1 : 0);
+    p.children.splice(idx, 0, n);
+    setStatus('已重排「' + n.text + '」');
+  }
+  drop = null; sel = n;
+  layoutTree(tree); syncFromTree();
+}
+function onUp() {
+  cv.classList.remove('dragging', 'hoverable');
+  if (ptr && ptr.mode === 'drag-node') applyDrop();
+  ptr = null; drop = null;
+  draw();
+}
+
+/* ---------------- 悬浮操作按钮 ---------------- */
+function updateUi() {
+  if (cv.clientWidth === 0) return;
+  if (editing) {
+    const n = editing;
+    nodeEd.style.display = 'block';
+    nodeEd.style.left = sx(n.lx) + 'px';
+    nodeEd.style.top = sy(n.cy - n.h / 2) + 'px';
+    nodeEd.style.width = (n.w * view.scale) + 'px';
+    nodeEd.style.height = (n.h * view.scale) + 'px';
+    nodeEd.style.fontSize = (FONT_PX[Math.min(n.depth, 2)] * view.scale) + 'px';
+    actionsBox.style.display = 'none';
+    return;
+  }
+  nodeEd.style.display = 'none';
+  if (!sel) { actionsBox.style.display = 'none'; return; }
+  const n = sel;
+  actionsBox.style.display = 'flex';
+  actionsBox.style.left = (sx(n.lx + n.w) + 6) + 'px';
+  actionsBox.style.top = sy(n.cy) + 'px';
+  actionsBox.style.transform = 'translateY(-50%)';
+}
+actChild.addEventListener('click', () => { const n = addChild(sel); if (n) { sel = n; startEdit(n, true); } });
+actSibling.addEventListener('click', () => { const n = addSibling(sel, false); if (n) { sel = n; startEdit(n, true); } });
+actJump.addEventListener('click', () => { if (sel) jumpTo(sel); });
+actDel.addEventListener('click', () => { delNode(sel); });
+/* ============================================================
+   ======================== PART3 ========================
+============================================================ */
+
+/* ---------------- 键盘（XMind 风格） ---------------- */
+function isTyping() {
+  const ae = document.activeElement;
+  return ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT');
+}
+document.addEventListener('keydown', e => {
+  const mod = e.ctrlKey || e.metaKey;
+  if (mod) {
+    const k = e.key.toLowerCase();
+    if (k === 'z') { e.preventDefault(); undo(); }
+    else if (k === 's') { e.preventDefault(); exportMd(); }
+    else if (k === 'o') { e.preventDefault(); fileInput.click(); }
+    return;
+  }
+  if (isTyping() || editing) return;
+  if (e.key === 'Enter' && !e.shiftKey && sel)      { e.preventDefault(); sel = addSibling(sel, false); sel && startEdit(sel, true); }
+  else if (e.key === 'Enter' && e.shiftKey && sel)  { e.preventDefault(); sel = addSibling(sel, true);  sel && startEdit(sel, true); }
+  else if (e.key === 'Tab' && !e.shiftKey && sel)   { e.preventDefault(); sel = addChild(sel);          sel && startEdit(sel, true); }
+  else if (e.key === 'Tab' && e.shiftKey && sel)    { e.preventDefault(); promote(sel); }
+  else if ((e.key === 'Delete' || e.key === 'Backspace') && sel) { e.preventDefault(); delNode(sel); }
+  else if (e.key === 'F2' && sel)                   { e.preventDefault(); startEdit(sel, true); }
+  else if (e.key === 'ArrowUp')                     { e.preventDefault(); navigate('up'); }
+  else if (e.key === 'ArrowDown')                   { e.preventDefault(); navigate('down'); }
+  else if (e.key === 'ArrowLeft')                   { e.preventDefault(); navigate('left'); }
+  else if (e.key === 'ArrowRight')                  { e.preventDefault(); navigate('right'); }
+  else if (e.key.length === 1 && sel && !e.altKey)  { e.preventDefault(); startEdit(sel, true); }  // 直接打字=改字
+});
+
+/* ---------------- 画布指针 ---------------- */
+cv.addEventListener('pointerdown', onDown);
+cv.addEventListener('pointermove', onMove);
+cv.addEventListener('pointercancel', () => { ptr = null; drop = null; cv.classList.remove('dragging', 'hoverable'); draw(); });
+cv.addEventListener('pointerleave', () => { if (!ptr) { hover = null; draw(); } });
+cv.addEventListener('pointerup', onUp);
+cv.addEventListener('dblclick', e => {          // 双击节点进入编辑
+  const cvt = cv.getBoundingClientRect();
+  const n = hitTest(e.clientX - cvt.left, e.clientY - cvt.top);
+  if (n) { sel = n; startEdit(n, true); }
+});
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  const rect = cv.getBoundingClientRect();
+  const px = e.clientX - rect.left, py = e.clientY - rect.top;
+  const ns = Math.min(4, Math.max(0.05, view.scale * Math.pow(1.0016, -e.deltaY)));
+  const wx = (px - view.ox) / view.scale, wy = (py - view.oy) / view.scale;
+  view.scale = ns; view.fitted = false;
+  view.ox = px - wx * ns; view.oy = py - wy * ns;
+  draw();
+}, { passive: false });
+
+/* ---------------- 工具栏与自动保存 ---------------- */
+const SAMPLE = `# 我的导图
+## 语法说明
+- 双击节点直接改字（或选中后直接打字）
+- Enter 加同级 · Tab 加子级 · Shift+Tab 升一级 · Delete 删除
+- 拖拽节点到另一节点 = 换父；拖到兄弟之间 = 排序
+- 方向键 ←↑↓→ 在分支间移动选中 · Alt+点击 跳原文 · Ctrl+Z 撤销
+
+## 这是一张示例导图
+- 左侧 Markdown 与右侧导图实时双向同步
+- 右侧改完，左侧文字自动更新
+- 点击节点 → 右侧选中状态；节点右下浮出快捷按钮
+- 滚轮缩放，按住空白处拖动画布
+
+## 存档 = 纯文本
+- 内容自动保存在浏览器本地
+- 点「导出 .md」存成文件，双击即可再次打开`;
+
+let saveTimer = null;
+function saveNow(msg) {
+  try { localStorage.setItem(SAVE_KEY, ta.value); } catch (err) {}
+  setStatus(msg || '已自动保存 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false }));
+}
+function exportMd() {
+  const name = (tree && tree.text ? tree.text : '思维导图')
+    .replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, ' ').trim() || '思维导图';
+  const blob = new Blob([ta.value], { type: 'text/markdown;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name + '.md';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  setStatus('已导出 ' + a.download);
+}
+
+function exportImg() {                           // 导出整棵树为高清 PNG
+  if (!tree || !tree._dim) { setStatus('还没有可导出的导图'); return; }
+  const dim = tree._dim;
+  let es = Math.min(3, Math.max(1.5, 2048 / dim.W, 2048 / dim.H));
+  es = Math.min(es, 8192 / dim.W, 8192 / dim.H);      // 防止超大图撑爆画布
+  es = Math.max(es, 0.25);
+  const W = Math.max(16, Math.ceil(dim.W * es));
+  const H = Math.max(16, Math.ceil(dim.H * es));
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const ex = c.getContext('2d');
+  ex.fillStyle = isDark() ? '#1a1a19' : '#fcfcfb';
+  ex.fillRect(0, 0, W, H);
+  paintTree(ex, es, 0, 0, true);                 // 复用同一套绘制，导出模式无高亮
+  const name = (tree.text || '思维导图')
+    .replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, ' ').trim() || '思维导图';
+  c.toBlob(function (blob) {
+    if (!blob) { setStatus('导出失败：无法生成 PNG'); return; }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name + '.png';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    setStatus('已导出图片 ' + a.download);
+  }, 'image/png');
+}
+
+function loadText(md, msg) {
+  pushUndo();
+  ta.value = md;
+  renderText(true);
+  sel = null;
+  saveNow(msg);
+}
+btnNew.addEventListener('click', () => loadText('# 未命名', '已新建空白草稿'));
+btnSample.addEventListener('click', () => loadText(SAMPLE, '已载入示例'));
+btnImport.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', () => {
+  const f = fileInput.files[0];
+  fileInput.value = '';
+  if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => loadText(rd.result, '已导入 ' + f.name);
+  rd.readAsText(f, 'utf-8');
+});
+btnExport.addEventListener('click', exportMd);
+btnImg.addEventListener('click', exportImg);
+btnCopy.addEventListener('click', () => {
+  navigator.clipboard.writeText(ta.value).then(
+    () => setStatus('已复制 Markdown'),
+    () => setStatus('复制失败，请手动 Ctrl+C')
+  );
+});
+btnFit.addEventListener('click', () => { if (tree) fitView(); });
+
+ta.addEventListener('input', () => {                 // 左侧手改 → 实时重算右侧
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveNow, 400);
+  clearTimeout(ta._rt);
+  ta._rt = setTimeout(() => { renderText(false); }, 120);
+});
+
+/* ---------------- 尺寸变化监控（根治首帧空白） ---------------- */
+if (window.ResizeObserver) {
+  new ResizeObserver(() => {
+    clearTimeout(ta._rs);
+    ta._rs = setTimeout(() => {
+      if (!tree) return;
+      if (view.fitted) fitView(); else draw();
+    }, 60);
+  }).observe(cv);
+}
+window.addEventListener('resize', () => {
+  clearTimeout(ta._rsw);
+  ta._rsw = setTimeout(() => { if (tree) fitView(); }, 150);
+});
+
+/* ---------------- 报错可见化（不静默） ---------------- */
+window.addEventListener('error', ev => {
+  const m = ev && ev.message ? ev.message : String(ev);
+  statusEl.style.color = '#d03b3b';
+  setStatus('⚠ 脚本出错：' + m);
+  setTimeout(() => { statusEl.style.color = ''; }, 8000);
+});
+
+/* ---------------- 启动 ---------------- */
+let saved = null;
+try { saved = localStorage.getItem(SAVE_KEY); } catch (err) {}
+if (saved && saved.startsWith('# 我的导图')
+    && saved.includes('滚轮缩放，按住空白处拖动画布')
+    && !saved.includes('双击节点直接改字')) saved = SAMPLE;   // 旧版 v1 示例 → 升级成新示例
+ta.value = (saved != null && saved !== '') ? saved : SAMPLE;
+renderText(true);
+setStatus('v2.2 · 自动保存已开启 · 双击节点编辑');
+
+/* 看门狗：若布局时机/尺寸问题导致一像素都没画出来，自动重试并把异常摆上台面 */
+let _wd = 0;
+(function watchdog() {
+  if (_drawn === 0) {
+    _wd++;
+    renderText(true);
+    if (_wd === 1) setStatus('v2.2 · 正在渲染…若持续空白，看右上角是否有红色报错');
+  }
+  if (_drawn === 0 && _wd < 8) setTimeout(watchdog, 300);
+})();
+</script>
+</body>
+</html>
