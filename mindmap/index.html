@@ -10,17 +10,20 @@
     --bg: #fcfcfb; --bg-panel: #f2f2ee; --border: #e1e0d9;
     --ink: #0b0b0b; --ink-2: #52514e; --ink-muted: #898781;
     --accent: #2a78d6; --btn: #ffffff; --btn-hover: #eef0f5;
+    --glass: rgba(255,255,255,.6); --glass-ink: rgba(60,60,67,.85);
   }
   :root[data-theme="dark"] {
     --bg: #1a1a19; --bg-panel: #232322; --border: #2c2c2a;
     --ink: #ffffff; --ink-2: #c3c2b7; --ink-muted: #898781;
     --accent: #3987e5; --btn: #232322; --btn-hover: #2e2e2c;
+    --glass: rgba(40,40,48,.55); --glass-ink: rgba(235,235,240,.85);
   }
   @media (prefers-color-scheme: dark) {
     :root:where(:not([data-theme="light"])) {
       --bg: #1a1a19; --bg-panel: #232322; --border: #2c2c2a;
       --ink: #ffffff; --ink-2: #c3c2b7; --ink-muted: #898781;
       --accent: #3987e5; --btn: #232322; --btn-hover: #2e2e2c;
+      --glass: rgba(40,40,48,.55); --glass-ink: rgba(235,235,240,.85);
     }
   }
   * { box-sizing: border-box; }
@@ -41,19 +44,18 @@
   .hint { font-size: 12px; color: var(--ink-muted); white-space: nowrap; }
 
   main { flex: 1; display: flex; min-height: 0; }
-  #side { width: 25%; min-width: 210px; max-width: 460px;
+  #side { width: 25%; min-width: 0; max-width: 460px;
           display: flex; flex-direction: column; border-right: 1px solid var(--border);
           background: var(--bg-panel); }
   #side.hidden { display: none; }             /* 收起左栏：画布自动占满 */
-  #splitter { position: relative; width: 12px; flex-shrink: 0; cursor: pointer;
-              background: var(--bg-panel); transition: background 0.15s; }
-  #splitter:hover { background: var(--bg); }
-  #btn-side { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-              width: 20px; height: 46px; padding: 0; display: flex; align-items: center; justify-content: center;
-              font-size: 10px; line-height: 1; color: var(--ink-muted);
-              background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px;
-              box-shadow: 0 1px 4px rgba(0,0,0,.14); cursor: pointer; }
-  #btn-side:hover { color: var(--accent); border-color: var(--accent); }
+  /* 可拖分隔线（iPadOS 分屏风）：平时只有 1px 线，悬停浮现细竖柄；按住拖动调宽，拖到最左自动收起 */
+  #splitter { position: relative; width: 9px; flex-shrink: 0; cursor: col-resize;
+              touch-action: none; background: transparent; transition: background .15s; }
+  #splitter:hover, #splitter.dragging { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+  #splitter::before { content: ''; position: absolute; top: 50%; left: 50%;
+              transform: translate(-50%, -50%); width: 2px; height: 42px; border-radius: 2px;
+              background: var(--ink-muted); opacity: 0; transition: opacity .15s; }
+  #splitter:hover::before, #splitter.dragging::before { opacity: .85; }
   textarea { flex: 1; resize: none; border: 0; outline: 0; padding: 14px;
              font: 14px/1.7 "Microsoft YaHei", "微软雅黑", sans-serif;
              background: var(--bg); color: var(--ink); }
@@ -81,8 +83,8 @@
   @media (max-width: 760px) {
     main { flex-direction: column; }
     #side { width: 100%; max-width: none; height: 40%; border-right: 0; border-bottom: 1px solid var(--border); }
-    #splitter { width: 100%; height: 12px; }
-    #btn-side { width: 46px; height: 20px; }
+    #splitter { width: 100%; height: 9px; cursor: row-resize; }
+    #splitter::before { width: 42px; height: 2px; }
     .hint { display: none; }
   }
 </style>
@@ -108,7 +110,7 @@
   <section id="side">
     <textarea id="editor" spellcheck="false" placeholder="# 我的导图&#10;## 分支一&#10;- 子项&#10;  - 更深的子项"></textarea>
   </section>
-  <div id="splitter" title="收起/展开左侧 Markdown 面板"><button id="btn-side">◀</button></div>
+  <div id="splitter" title="拖此线调整左栏宽度 · 拖到最左/单击收起 · 再击展开"></div>
   <section id="stage">
     <canvas id="map" tabindex="0"></canvas>
     <textarea id="node-editor"></textarea>
@@ -155,7 +157,7 @@ const btnFit     = document.getElementById('btn-fit');
 const fileInput  = document.getElementById('file');
 const rpt        = document.getElementById('rpt');
 const sideEl     = document.getElementById('side');
-const btnSide    = document.getElementById('btn-side');
+const splitEl    = document.getElementById('splitter');
 
 /* ---------------- 状态 ---------------- */
 const SAVE_KEY = 'mindmark.draft.v2';
@@ -1096,19 +1098,61 @@ ta.value = (saved != null && saved !== '') ? saved : SAMPLE;
 renderText(true);
 setStatus('v2.2 · 自动保存已开启 · 双击节点编辑');
 
-/* 左栏收起/展开：状态记住，重开保持上次选择 */
-let sideHidden = false;
-try { sideHidden = localStorage.getItem('mindmark.side.hidden') === '1'; } catch (err) {}
+/* 左栏：默认 1/4；单击分隔线收起/展开，按住拖动调宽（拖到最左自动收起）；状态记忆 */
+let sideHidden = false, sideW = null;
+try {
+  sideHidden = localStorage.getItem('mindmark.side.hidden') === '1';
+  const w = parseFloat(localStorage.getItem('mindmark.side.width'));
+  if (w && w >= 60 && w <= 600) sideW = w;
+} catch (err) {}
 function applySide() {
   sideEl.classList.toggle('hidden', sideHidden);
-  btnSide.textContent = sideHidden ? '▶' : '◀';   // 箭头始终指向动作方向：收◀ / 展▶
+  sideEl.style.width = (sideHidden || !sideW) ? '' : sideW + 'px';   // 有自定义宽度则用之，否则回默认 25%
   if (tree) fitView();
 }
-btnSide.addEventListener('click', () => {
+function toggleSide() {
   sideHidden = !sideHidden;
   try { localStorage.setItem('mindmark.side.hidden', sideHidden ? '1' : '0'); } catch (err) {}
   applySide();
+}
+const SIDE_MIN = 80, SIDE_MAX = 460, SIDE_COLLAPSE = 130;
+let sideDrag = null, rz = null;
+const rzFit = () => { if (rz) return; rz = requestAnimationFrame(() => { rz = null; if (tree) fitView(); }); };
+splitEl.addEventListener('pointerdown', e => {
+  sideDrag = { ptr: e.pointerId, x: e.clientX,
+               w0: sideHidden ? 0 : sideEl.getBoundingClientRect().width,
+               moved: false, narrow: window.innerWidth <= 760 };
+  splitEl.classList.add('dragging');
+  try { splitEl.setPointerCapture(e.pointerId); } catch (err) {}
+  e.preventDefault();
 });
+splitEl.addEventListener('pointermove', e => {
+  if (!sideDrag) return;
+  if (!sideDrag.moved && Math.abs(e.clientX - sideDrag.x) > 4) sideDrag.moved = true;
+  if (!sideDrag.moved || sideDrag.narrow) return;      // 手机纵向布局不调宽，交给 up 判断点击
+  const w = Math.max(SIDE_MIN, Math.min(SIDE_MAX, sideDrag.w0 + (e.clientX - sideDrag.x)));
+  if (sideHidden) { sideHidden = false; sideEl.classList.remove('hidden'); }
+  sideEl.style.width = w + 'px';
+  rzFit();
+});
+function sideUp() {
+  if (!sideDrag) return;
+  const d = sideDrag;
+  splitEl.classList.remove('dragging');
+  sideDrag = null;
+  if (d.narrow || !d.moved) { toggleSide(); return; } // 窄屏无拖宽概念 / 位移 <4px → 一律按单击切换
+  const w = parseFloat(sideEl.style.width);           // 真拖拽：按落点宽度收尾
+  if (!isNaN(w) && w < SIDE_COLLAPSE) {               // 拖到很窄 → 自动收起
+    sideHidden = true; sideW = null;
+    try { localStorage.removeItem('mindmark.side.width'); } catch (err) {}
+    applySide();
+  } else if (!isNaN(w)) {                             // 记下本次宽度，下次打开保持
+    sideW = Math.round(w);
+    try { localStorage.setItem('mindmark.side.width', sideW); } catch (err) {}
+  }
+}
+splitEl.addEventListener('pointerup', sideUp);
+splitEl.addEventListener('pointercancel', sideUp);
 applySide();
 
 /* 看门狗：若布局时机/尺寸问题导致一像素都没画出来，自动重试并把异常摆上台面 */
