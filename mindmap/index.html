@@ -624,6 +624,7 @@ function delNode(n) {
 /* ---------------- 就地编辑（XMind 双击改字） ---------------- */
 function startEdit(n, selectAll) {
   if (editing) commitEdit();
+  edited = false; lastValue = nodeText(n);
   editing = n;
   const initial = nodeText(n);
   nodeEd.value = initial;
@@ -636,11 +637,21 @@ function startEdit(n, selectAll) {
     if (selectAll && nodeEd.value === initial) nodeEd.select();  // 只对还没输入过的文本做全选，避免打断已开始的输入
   });
 }
+/* 编辑追踪：输入/组合事件持续同步最新值，提交时绝不读空；editLog 可回溯整段编辑 */
+let lastValue = '', edited = false, editLog = [];
+function trace(m, show) {
+  editLog.push(m); if (editLog.length > 60) editLog.shift();
+  if (show) setStatus('✎ ' + m);
+}
 function commitEdit() {
   if (!editing) return;
   const n = editing;
-  const v = nodeEd.value.replace(/\r?\n/g, ' ').trim();
-  if (!v) { cancelEdit(); return; }          // 空提交=未输入任何内容：回退保留原文本，绝不把已有内容清空
+  let v = (nodeEd.value || '').replace(/\r?\n/g, ' ').trim();
+  if (!v) v = (lastValue || '').replace(/\r?\n/g, ' ').trim();
+  if (!v) {
+    if (edited) { trace('提交读到空值，保持编辑态等输入法落盘', true); return; }  // 输入过但值暂空：保留编辑面板，下一回车即提交，绝不丢字
+    v = nodeText(n);               // 全程没输入：按原文本结束编辑
+  }
   editing = null;
   pushUndo();
   const m = v.match(/^([☐☑])\s*(.*)$/);
@@ -655,6 +666,7 @@ function commitEdit() {
   layoutTree(tree); syncFromTree();
   sel = n;
   cv.focus();
+  trace('提交：「' + v + '」', true);
 }
 function cancelEdit() {
   editing = null;
@@ -664,9 +676,15 @@ function cancelEdit() {
 }
 nodeEd.addEventListener('keydown', e => {
   e.stopPropagation();
-  if (e.isComposing || e.keyCode === 229) return;   // 输入法组词中：Enter/空格只是确认选词，不能当”编辑完成”提交（部分 IME 不带 isComposing，补 229 判定）
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); requestAnimationFrame(commitEdit); }  // 推迟一帧：等组合/输入事件落盘后再读值，避免拿到空值把内容清掉
-  else if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
+  if (e.isComposing || e.keyCode === 229) { trace(e.key === 'Enter' ? '回车=确认选词(组词中)' : 'IME键(229)'); return; }
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); trace('回车=结束编辑'); requestAnimationFrame(commitEdit); }  // 推迟一帧：等组合/输入事件落盘后再读值
+  else if (e.key === 'Escape') { e.preventDefault(); trace('取消编辑', true); cancelEdit(); }
+});
+nodeEd.addEventListener('compositionstart', () => { edited = true; });
+nodeEd.addEventListener('compositionend', e => {
+  if (!nodeEd.value && e.data) nodeEd.value = e.data;   // 组合确认后 value 未同步时补齐，防提交读空
+  lastValue = nodeEd.value;
+  trace('组合结束：「' + (e.data || '(无)') + '」');
 });
 nodeEd.addEventListener('blur', () => { if (editing) requestAnimationFrame(() => { if (editing) commitEdit(); }); });  // 同上：blur 常发生在 Enter 确认选词时，等值稳定再提交
 let editMirror = null;                       // 镜像测宽：textarea 会换行，scrollWidth 量不出最长行
@@ -680,8 +698,9 @@ function measureEditText(text) {
   editMirror.textContent = text.replace(/\n/g, ' ');
   return editMirror.scrollWidth;
 }
-nodeEd.addEventListener('input', () => {   // 随内容自动撑宽/高，避免比节点宽的文本被 overflow:hidden 裁掉
-  nodeEd.style.height = nodeEd.scrollHeight + 'px';
+nodeEd.addEventListener('input', () => {
+  lastValue = nodeEd.value; edited = true;   // 同步最新值：提交兜底读它，防组合中的空档
+  nodeEd.style.height = nodeEd.scrollHeight + 'px';   // 随内容自动撑高/宽，避免比节点宽的文本被 overflow:hidden 裁掉
   const n = editing;
   if (n) {
     const nodeW = n.w * view.scale;
