@@ -493,7 +493,7 @@
   function renderRange(){ document.getElementById("rangeLabel").textContent=state.viewStart+"  →  "+viewEnd();
     document.getElementById("rFrom").value=state.viewStart; document.getElementById("rTo").value=viewEnd(); }
   function renderAll(){ document.documentElement.style.setProperty("--dayw",state.dayWidth+"px");
-    renderHead(); renderBands(); renderRows(); renderRange(); repositionPop(); }
+    renderHead(); renderBands(); renderRows(); renderRange(); repositionPop(); saveDraft(); }
 
   /* ---------- 新建（空白拖拽，需真正拖过≥1天才创建，防误触） ---------- */
   function attachCreate(track, a){
@@ -785,9 +785,11 @@
 
   /* ---------- 导出 Excel：按天铺色的甘特网格（xlsx-js-style 支持单元格底色） ---------- */
   function hex(c){ return String(c||"#888888").replace("#","").toUpperCase(); }
-  function onInk(c){                       // 根据背景色亮暗决定文字用黑/白（相对亮度阈值）
+  function onInk(c){                       // 背景亮暗→字色：sRGB 相对亮度 <0.40 用白字，否则深字
     var h=hex(c), r=parseInt(h.substr(0,2),16)/255, g=parseInt(h.substr(2,2),16)/255, b=parseInt(h.substr(4,2),16)/255;
-    return ((0.2126*r+0.7152*g+0.0722*b)>0.50) ? "#1F2430" : "#FFFFFF";
+    function lin(v){ return v<=0.03928 ? v/12.92 : Math.pow((v+0.055)/1.055,2.4); }
+    var L=0.2126*lin(r)+0.7152*lin(g)+0.0722*lin(b);
+    return (L<0.40) ? "#FFFFFF" : "#1F2430";
   }
   function yaHei(ws){                       // 全表文本（含空单元格）统一微软雅黑
     Object.keys(ws).forEach(function(k){ if(k.charAt(0)==="!") return;
@@ -1167,8 +1169,34 @@
   document.getElementById("tabGantt").addEventListener("click", function(){ setTab("gantt"); });
   document.getElementById("tabTable").addEventListener("click", function(){ setTab("table"); });
 
-  /* ---------- 启动（空白排期，无预置示例） ---------- */
-  document.getElementById("srcTag").textContent="空白排期 · 数据在本页内 (导入/新建后才会生成)";
+  /* ---------- 草稿自动保存/恢复（localStorage，刷新/关页后不丢） ---------- */
+  var DRAFT_KEY="schedule.draft.v1";
+  function saveDraft(){ try{
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ v:1, viewStart:state.viewStart, numDays:state.numDays, dayWidth:state.dayWidth, activities:state.activities, blocks:state.blocks }));
+  }catch(e){} }
+  function loadDraft(){
+    var raw=null; try{ raw=localStorage.getItem(DRAFT_KEY); }catch(e){}
+    if(!raw) return false;
+    try{
+      var d=JSON.parse(raw);
+      if(!d || !Array.isArray(d.activities)) return false;
+      state.activities=d.activities.filter(function(a){ return a && a.id && a.name!=null; });
+      state.blocks=(Array.isArray(d.blocks)?d.blocks:[]).filter(function(b){ return b && b.act && actOf(b.act); }).map(function(b){
+        b.recur=(b.recur==="weekly"||b.recur==="monthly"||b.recur==="none")?b.recur:"none"; return b;
+      });
+      if(/^\d{4}-\d{2}-\d{2}$/.test(String(d.viewStart||""))) state.viewStart=d.viewStart;
+      if(d.numDays>=7 && d.numDays<=500) state.numDays=d.numDays;
+      if(d.dayWidth>=34 && d.dayWidth<=80) state.dayWidth=d.dayWidth;
+      var mx=900;
+      state.activities.concat(state.blocks).forEach(function(o){ var n=parseInt(String(o.id||"").replace(/^[^0-9]*/,""),10); if(!isNaN(n)&&n>mx) mx=n; });
+      state.seq=mx;
+      return true;
+    }catch(e){ return false; }
+  }
+
+  /* ---------- 启动：先恢复上次草稿，否则空白 ---------- */
+  var restored=false; try{ restored=loadDraft(); }catch(e){}
+  document.getElementById("srcTag").textContent= restored ? "已恢复上次草稿" : "空白排期 · 改动自动保存在本浏览器";
   renderAll();
   renderTable();
 })();
