@@ -461,13 +461,13 @@ function paintTree(ctx, sc, ox, oy, plain) {
     rr(ctx, x, y, w, h, rad);
     ctx.fill(); ctx.stroke();
     ctx.fillStyle = nodeInk(n);
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';   // 框内文字：水平左对齐，垂直居中
     ctx.font = (n.depth < 2 ? '600 ' : '')
       + Math.max(4, Math.round(FONT_PX[Math.min(n.depth, 2)] * sc))
       + 'px "Microsoft YaHei","微软雅黑",sans-serif';
     const lh = LINE_H * sc;
     let ty = y + h / 2 - ((n.lines.length - 1) * lh) / 2;
-    for (const ln of n.lines) { ctx.fillText(ln, x + w / 2, ty); ty += lh; }
+    for (const ln of n.lines) { ctx.fillText(ln, x + NODE_PAD_X * sc, ty); ty += lh; }
   }
 }
 
@@ -503,10 +503,10 @@ function draw() {
     ctx2.font = (n.depth < 2 ? '600 ' : '')
       + Math.max(4, Math.round(FONT_PX[Math.min(n.depth, 2)] * view.scale))
       + 'px "Microsoft YaHei","微软雅黑",sans-serif';
-    ctx2.textAlign = 'center'; ctx2.textBaseline = 'middle';
+    ctx2.textAlign = 'left'; ctx2.textBaseline = 'middle';
     const lh = LINE_H * view.scale;
     let ty = y + h / 2 - ((n.lines.length - 1) * lh) / 2;
-    for (const ln of n.lines) { ctx2.fillText(ln, x + w / 2, ty); ty += lh; }
+    for (const ln of n.lines) { ctx2.fillText(ln, x + NODE_PAD_X * view.scale, ty); ty += lh; }
     ctx2.restore();
   }
 
