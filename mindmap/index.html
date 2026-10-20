@@ -172,15 +172,16 @@ mqDark.addEventListener('change', () => { theme = mqDark.matches ? 'dark' : 'lig
 
 /* ---------------- 颜色（Notion 文本默认配色，8 色） ---------------- */
 const NOTION = [
-  { light: '#9F6B53', dark: '#CB9B83' },   // 棕
-  { light: '#D9730D', dark: '#DFA14F' },   // 橙
-  { light: '#CB912F', dark: '#D6B460' },   // 黄
-  { light: '#448361', dark: '#7FA686' },   // 绿
-  { light: '#337EA9', dark: '#5FA0C4' },   // 蓝
-  { light: '#9065B0', dark: '#B089C1' },   // 紫
-  { light: '#C14C8A', dark: '#D88AB5' },   // 粉
   { light: '#D44C47', dark: '#E58B87' },   // 红
+  { light: '#448361', dark: '#7FA686' },   // 绿
+  { light: '#D9730D', dark: '#DFA14F' },   // 橙
+  { light: '#337EA9', dark: '#5FA0C4' },   // 蓝
+  { light: '#CB912F', dark: '#D6B460' },   // 黄
+  { light: '#9065B0', dark: '#B089C1' },   // 紫
+  { light: '#9F6B53', dark: '#CB9B83' },   // 棕
+  { light: '#C14C8A', dark: '#D88AB5' },   // 粉
 ];
+const ROOT_HUE = NOTION[3];                 // 根节点固定蓝色，不随轮换顺序变动
 function hueOf(i) { return Math.abs(i) % 8; }
 function isDark() { return theme === 'dark'; }
 function mix(a, b, t) {                    // 两 hex 颜色插值：t=0 纯 a，t=1 纯 b
@@ -191,7 +192,7 @@ function mix(a, b, t) {                    // 两 hex 颜色插值：t=0 纯 a�
 }
 function notion(n) { return NOTION[Math.max(0, Math.min(7, n.hue | 0))]; }
 function nodeBg(n) {                       // 卡片底：浅色=白底淡彩；深色=深底彩调
-  if (n.depth === 0) return isDark() ? NOTION[4].dark : NOTION[4].light;
+  if (n.depth === 0) return isDark() ? ROOT_HUE.dark : ROOT_HUE.light;
   const c = notion(n);
   const base = isDark() ? '#1a1a19' : '#ffffff';
   const t = isDark() ? Math.min(0.42, 0.24 + n.depth * 0.06)
@@ -204,7 +205,7 @@ function nodeInk(n) {                      // 文字：根=白；其余=Notion �
   return isDark() ? mix(c.dark, '#ffffff', 0.22) : mix(c.light, '#000000', 0.12);
 }
 function nodeBorder(n, t) {                  // 边框随模块底色：向该节点自身色系加深（t=强度）
-  const root = isDark() ? NOTION[4].dark : NOTION[4].light;
+  const root = isDark() ? ROOT_HUE.dark : ROOT_HUE.light;
   const hue = (n.depth === 0) ? root : (isDark() ? notion(n).dark : notion(n).light);
   return mix(nodeBg(n), hue, t);
 }
@@ -471,9 +472,12 @@ function paintTree(ctx, sc, ox, oy, plain) {
 }
 
 function draw() {
-  const dpr = window.devicePixelRatio || 1;
   const cw = cv.clientWidth, ch = cv.clientHeight;
   if (cw === 0 || ch === 0) { requestAnimationFrame(draw); return; }
+  const dpr0 = window.devicePixelRatio || 1;
+  let SS = 2;                                   // 超采样倍数：按 DPR×SS 分辨率栅格化，再经合成器缩回 CSS 尺寸
+  if (Math.max(cw, ch) * dpr0 * SS > 4800) SS = 1;   // 超大画布降级，防显存爆掉
+  const dpr = dpr0 * SS;
   if (cv.width !== Math.round(cw * dpr)) cv.width = Math.round(cw * dpr);
   if (cv.height !== Math.round(ch * dpr)) cv.height = Math.round(ch * dpr);
   ctx2.setTransform(dpr, 0, 0, dpr, 0, 0);
