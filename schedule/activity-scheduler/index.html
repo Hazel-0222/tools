@@ -56,10 +56,11 @@
   .canvas-wrap{ flex:1; overflow:auto; position:relative; background:#fff; }
   .grid{ position:relative; }
   .bands{ position:absolute; top:var(--headh); left:var(--labelw); bottom:0; pointer-events:none; z-index:0; }
-  .band{ position:absolute; top:0; bottom:0; }
+  .band{ position:absolute; top:0; bottom:0; pointer-events:none; }
   .band.weekend{ background:var(--weekend); }
   .band.today{ background:var(--today); }
-  .band.mstart{ border-left:1px solid var(--line-strong); }
+  /* 月份分隔：2px 深线，left=(月初列宽-1)px 使其居中跨列界 */
+  .band.mstart{ border-left:2px solid var(--line-strong); }
   .head{ position:sticky; top:0; z-index:5; display:flex; height:var(--headh); background:var(--panel); border-bottom:1px solid var(--line-strong); }
   .corner{ position:sticky; left:0; z-index:6; width:var(--labelw); min-width:var(--labelw); background:var(--panel); border-right:1px solid var(--line-strong); display:flex; align-items:flex-end; padding:0 12px 8px; color:var(--muted); font-size:12px; }
   .head-track{ position:relative; }
@@ -411,6 +412,13 @@
       day.appendChild(cell);
     }
     headTrack.appendChild(day);
+    // 月份分隔：跨整表头（高54px）的 2px 深线，与 body 的 .band.mstart 对齐
+    for(var m=1;m<state.numDays;m++){
+      var pd=parse(addDays(state.viewStart,m-1)), cd=parse(addDays(state.viewStart,m));
+      if(pd.getUTCMonth()!==cd.getUTCMonth()){
+        var sb=document.createElement("div"); sb.className="band mstart"; sb.style.left=(m*state.dayWidth-1)+"px"; headTrack.appendChild(sb);
+      }
+    }
   }
   function renderBands(){
     var dw=state.dayWidth;
@@ -432,7 +440,7 @@
       var ds=addDays(state.viewStart,x);
       if(ds===TODAY){ var tb=document.createElement("div"); tb.className="band today"; tb.style.left=(x*dw)+"px"; tb.style.width=dw+"px"; frag.appendChild(tb); }
       var prev=x>0?parse(addDays(state.viewStart,x-1)):null, cur=parse(ds);
-      if(!prev || prev.getUTCMonth()!==cur.getUTCMonth()){ var mb=document.createElement("div"); mb.className="band mstart"; mb.style.left=(x*dw)+"px"; frag.appendChild(mb); }
+      if(prev && prev.getUTCMonth()!==cur.getUTCMonth()){ var mb=document.createElement("div"); mb.className="band mstart"; mb.style.left=(x*dw-1)+"px"; frag.appendChild(mb); }
     }
     bands.appendChild(frag);
   }
@@ -810,8 +818,9 @@
       {h:"开始", w:11}, {h:"结束", w:12}, {h:"每次(天)", w:8}, {h:"重复日", w:8}
     ];
     var FIXED=fcols.length;
-    var ws={}, maxc=FIXED+days-1, maxr=1+state.activities.length;
-    function put(r,c,val,style){ var addr=XLSX.utils.encode_cell({r:r,c:c}); var cell=(typeof val==="number")?{t:"n",v:val}:{t:"s",v:(val==null?"":String(val))}; if(style) cell.s=style; ws[addr]=cell; }
+    var ws={}, maxc=FIXED+days-1, maxr=2+state.activities.length, mBound={};   // 月份首列集合（加粗分隔）
+    function put(r,c,val,style){ if(mBound[c]) style=thickLeft(style); var addr=XLSX.utils.encode_cell({r:r,c:c}); var cell=(typeof val==="number")?{t:"n",v:val}:{t:"s",v:(val==null?"":String(val))}; if(style) cell.s=style; ws[addr]=cell; }
+    function thickLeft(s){ var o={}; for(var k in (s||{})) o[k]=s[k]; o.border={}; for(var b in bd) o.border[b]=bd[b]; o.border.left={style:"medium",color:{rgb:"AEB7C8"}}; return o; }
     var bd={top:{style:"thin",color:{rgb:"D6DAE3"}},bottom:{style:"thin",color:{rgb:"D6DAE3"}},left:{style:"thin",color:{rgb:"D6DAE3"}},right:{style:"thin",color:{rgb:"D6DAE3"}}};
     var cHd={fill:{patternType:"solid",fgColor:{rgb:"EAF0F9"}},font:{color:{rgb:"1F2430"},bold:true,sz:10},alignment:{horizontal:"center",vertical:"center",wrapText:true},border:bd};
     var cHdWk={fill:{patternType:"solid",fgColor:{rgb:"DFE7F2"}},font:{color:{rgb:"1F2430"},bold:true,sz:10},alignment:{horizontal:"center",vertical:"center"},border:bd};
@@ -821,20 +830,31 @@
     var cBlank={border:bd};
     function barStyle(h){ return {fill:{patternType:"solid",fgColor:{rgb:h}},font:{color:{rgb:onInk(h).replace("#","")},bold:true,sz:10},border:bd,alignment:{horizontal:"center",vertical:"center"} }; }
 
-    // 表头：固定列跨两行合并；右侧第一行=星期，第二行=日期
+    // 表头三行（与页面一致）：固定列跨三行合并；右侧 月份(跨月合并)→星期→几号
     var merges=[];
-    fcols.forEach(function(f,c){ put(0,c,f.h,cHd); put(1,c,"",cHd); merges.push({s:{r:0,c:c},e:{r:1,c:c}}); });
+    fcols.forEach(function(f,c){ put(0,c,f.h,cHd); put(1,c,"",cHd); put(2,c,"",cHd); merges.push({s:{r:0,c:c},e:{r:2,c:c}}); });
     var dayMeta=[];
+    // 第一行：月份，按自然月合并
+    var mi=0;
+    while(mi<days){
+      var md=parse(addDays(base,mi)), mk=md.getUTCFullYear()+"-"+md.getUTCMonth(), mj=mi;
+      while(mj<days){ var mm=parse(addDays(base,mj)); if(mm.getUTCFullYear()+"-"+mm.getUTCMonth()!==mk) break; mj++; }
+      if(mi>0) mBound[FIXED+mi]=1;                 // 月份首列加粗分隔（视口首列除外）
+      put(0,FIXED+mi, md.getUTCFullYear()+"年"+(md.getUTCMonth()+1)+"月", cHd);
+      if(mj-1>mi) merges.push({s:{r:0,c:FIXED+mi},e:{r:0,c:FIXED+mj-1}});
+      mi=mj;
+    }
+    // 第二行：星期；第三行：几号
     for(var i=0;i<days;i++){
       var ds=addDays(base,i), wd=weekday(ds), isWknd=wd>=5;
       dayMeta.push({ds:ds,wd:wd,isWknd:isWknd});
-      put(0,FIXED+i,WDN[wd], isWknd?cHdWk:cHd);
-      put(1,FIXED+i,(parse(ds).getUTCMonth()+1)+"/"+parse(ds).getUTCDate(), isWknd?cHdWk:cHd);
+      put(1,FIXED+i,WDN[wd], isWknd?cHdWk:cHd);
+      put(2,FIXED+i,parse(ds).getUTCDate(), isWknd?cHdWk:cHd);
     }
     // 事项行：左侧结构化字段 + 右侧连续涂色合并并写事项名
     var RECUR_TXT={none:"不循环",weekly:"每周",monthly:"每月"};
     state.activities.forEach(function(a,ri){
-      var r=2+ri;
+      var r=3+ri;
       var b=getBlockFor(a);
       var start="", endTxt="", perTxt="", repTxt="", recurTxt="";
       if(b){
@@ -864,8 +884,8 @@
 
     ws["!ref"]=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:maxr,c:maxc}});
     ws["!cols"]=fcols.map(function(f){return {wch:f.w};}); for(var i=0;i<days;i++) ws["!cols"].push({wch:4});
-    ws["!rows"]=[{hpt:18},{hpt:16}]; for(var i=0;i<state.activities.length;i++) ws["!rows"].push({hpt:22});
-    try{ ws["!freeze"]={xSplit:FIXED,ySplit:2}; }catch(e){}
+    ws["!rows"]=[{hpt:18},{hpt:16},{hpt:16}]; for(var i=0;i<state.activities.length;i++) ws["!rows"].push({hpt:22});
+    try{ ws["!freeze"]={xSplit:FIXED,ySplit:3}; }catch(e){}
     try{ ws["!merges"]=merges; }catch(e){}
 
     /* 数据表 sheet：一事项一行的结构化字段，便于存档后微调，再回导入排期 */
