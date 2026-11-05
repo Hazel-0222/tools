@@ -40,17 +40,5 @@
         "desc": "Markdown 与脑图双向同步编辑，支持拖拽调整、导出图片与 Markdown",
         "category": "Mind",
         "path": "mindmap/"
-    },
-    {
-        "name": "流程图",
-        "desc": "Mermaid 风格流程图代码⇄画布双向编辑，支持拖拽连线、改字、导出图片与 .mmd",
-        "category": "Mind",
-        "path": "flowchart/"
-    },
-    {
-        "name": "MD 编辑器",
-        "desc": "双栏 Markdown 编辑器：左侧编辑右侧实时渲染，图片粘贴/插入与 Mermaid 图表，导出 .md 与 GitHub 排版的 Word .docx",
-        "category": "MD",
-        "path": "md-editor/"
     }
 ]
