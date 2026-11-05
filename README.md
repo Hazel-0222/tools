@@ -20,6 +20,7 @@
 
 ### Mind
 - [mindmap](mindmap/) — 思维导图：Markdown 与脑图双向同步，支持拖拽调整、导出图片
+- [flowchart](flowchart/) — 流程图：Mermaid 风格代码⇄画布双向编辑，拖拽连线改字、导出图片与 .mmd
 
 ## 使用方式
 

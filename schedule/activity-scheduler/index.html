@@ -62,7 +62,7 @@
   /* 月份分隔：2px 深线，left=(月初列宽-1)px 使其居中跨列界 */
   .band.mstart{ border-left:2px solid var(--line-strong); }
   .head{ position:sticky; top:0; z-index:5; display:flex; height:var(--headh); background:var(--panel); border-bottom:1px solid var(--line-strong); }
-  .corner{ position:sticky; left:0; z-index:6; width:var(--labelw); min-width:var(--labelw); background:var(--panel); border-right:1px solid var(--line-strong); display:flex; align-items:flex-end; padding:0 12px 8px; color:var(--muted); font-size:12px; }
+  .corner{ position:relative; z-index:6; width:var(--labelw); min-width:var(--labelw); background:var(--panel); border-right:1px solid var(--line-strong); display:flex; align-items:flex-end; padding:0 12px 8px; color:var(--muted); font-size:12px; will-change:transform; }
   .head-track{ position:relative; }
   .monrow{ position:relative; height:26px; }
   .moncell{ position:absolute; top:0; height:26px; display:flex; align-items:center; padding-left:8px; font-size:12px; font-weight:650; border-left:1px solid var(--line); }
@@ -74,7 +74,7 @@
   .rows{ position:relative; z-index:1; }
   .row{ display:flex; height:var(--rowh); border-bottom:1px solid var(--line); }
   .row:hover{ background:rgba(47,111,237,.03); }
-  .label{ position:sticky; left:0; z-index:4; width:var(--labelw); min-width:var(--labelw); background:var(--panel); border-right:1px solid var(--line-strong); display:flex; align-items:center; gap:8px; padding:0 10px; }
+  .label{ position:relative; z-index:4; width:var(--labelw); min-width:var(--labelw); background:var(--panel); border-right:1px solid var(--line-strong); display:flex; align-items:center; gap:8px; padding:0 10px; will-change:transform; }
   .row:hover .label{ background:#fbfcfe; }
   .dot{ width:12px; height:12px; border-radius:3px; flex:none; cursor:pointer; }
   .cpal{ position:fixed; z-index:2000; display:grid; grid-template-columns:repeat(8,22px); gap:4px; padding:8px; background:#fff;
@@ -226,7 +226,7 @@
           <th>开始时间</th><th>结束时间<br><span style="font-weight:400;color:var(--muted)">填日期，或留空＝永不结束</span></th>
           <th>每次持续<br><span style="font-weight:400;color:var(--muted)">单次自动</span></th>
           <th>重复日<br><span style="font-weight:400;color:var(--muted)">周几 / 几号</span></th>
-          <th>说明（自动）</th><th>备注</th><th></th>
+          <th>备注</th><th></th>
         </tr></thead><tbody id="dtBody"></tbody></table>
       </div>
     </div>
@@ -502,7 +502,7 @@
   function renderRange(){ document.getElementById("rangeLabel").textContent=state.viewStart+"  →  "+viewEnd();
     document.getElementById("rFrom").value=state.viewStart; document.getElementById("rTo").value=viewEnd(); }
   function renderAll(){ document.documentElement.style.setProperty("--dayw",state.dayWidth+"px");
-    renderHead(); renderBands(); renderRows(); renderRange(); repositionPop(); saveDraft(); }
+    renderHead(); renderBands(); renderRows(); renderRange(); fixLeftCol(); repositionPop(); saveDraft(); }
 
   /* ---------- 新建（空白拖拽，需真正拖过≥1天才创建，防误触） ---------- */
   function attachCreate(track, a){
@@ -653,6 +653,14 @@
   function repositionPop(){ if(!state.popBlock) return;
     var el=document.querySelector('.bar[data-block="'+state.popBlock+'"]');
     if(!el){ closePop(); return; } placePop(el); }
+  // 左列固定：横向滚动时反向 translate 所有 .label 与 .corner，使其钉在左侧（兼容 sticky 失效环境）
+  var fxRaf=0;
+  function fixLeftCol(){
+    var sx=canvasWrap.scrollLeft;
+    canvasWrap.querySelector(".corner").style.transform="translateX("+(-sx)+"px)";
+    var ls=canvasWrap.querySelectorAll(".label");
+    for(var i=0;i<ls.length;i++) ls[i].style.transform="translateX("+(-sx)+"px)";
+  }
   function closePop(){ pop.classList.remove("show"); state.popBlock=null; }
   document.getElementById("popClose").addEventListener("click", closePop);
   document.getElementById("pRecur").addEventListener("change", function(e){ var b=byId(state.popBlock); if(!b) return;
@@ -724,12 +732,19 @@
   document.getElementById("next").addEventListener("click",function(){ shiftView(1); });
   function shiftView(dir){ state.viewStart=addDays(state.viewStart, dir*Math.min(state.numDays, 28)); closePop(); renderAll(); }
   function scrollToToday(){
-    // 让“今天”列（编号=DAY列）居中显示。clientWidth 含左侧 216px 标签栏，可视日区=clientWidth-216
-    var idx=diffDays(state.viewStart, TODAY), dw=state.dayWidth;
-    var cw=canvasWrap, max=cw.scrollWidth-cw.clientWidth;
-    cw.scrollLeft=clamp(idx*dw - (cw.clientWidth-216)/2, 0, Math.max(0,max));
+    // 让“今天”列（.daycell.today）精确居中于可视区。216=左侧固定标签栏宽，列中心对准视区中央
+    var cw=canvasWrap, max=Math.max(0,cw.scrollWidth-cw.clientWidth);
+    var tc=headTrack.querySelector(".daycell.today");
+    if(tc){ cw.scrollLeft=216+tc.offsetLeft+(tc.offsetWidth/2)-(cw.clientWidth/2); }
+    else {
+      var idx=diffDays(state.viewStart, TODAY);
+      cw.scrollLeft=(idx*state.dayWidth)-(cw.clientWidth-216)/2;   // 兜底：今天不在视区时回退到数学定位
+    }
+    cw.scrollLeft=clamp(cw.scrollLeft, 0, max);
   }
-  document.getElementById("today").addEventListener("click",function(){ state.viewStart=addDays(TODAY,-Math.floor(state.numDays/2)); closePop(); renderAll(); scrollToToday(); });
+  document.getElementById("today").addEventListener("click",function(){
+    state.viewStart=addDays(TODAY,-Math.floor(state.numDays/2)); setTab("gantt"); closePop(); renderAll(); scrollToToday();
+  });
   document.getElementById("addAct").addEventListener("click",addActivity);
   document.getElementById("clearBtn").addEventListener("click",function(){
     if(!confirm("确定清空所有事项和排期？此操作不可撤销。")) return;
@@ -752,7 +767,9 @@
   });
   document.getElementById("export").addEventListener("click", exportExcel);
   document.getElementById("tplBtn").addEventListener("click", downloadTemplate);
-  canvasWrap.addEventListener("scroll", repositionPop);
+  canvasWrap.addEventListener("scroll", function(){
+    if(!fxRaf){ fxRaf=1; requestAnimationFrame(function(){ fxRaf=0; fixLeftCol(); repositionPop(); }); }
+  });
   document.addEventListener("keydown",function(e){
     if((e.key==="Delete")&&state.sel&&document.activeElement.tagName!=="INPUT"){
       state.blocks=state.blocks.filter(function(x){return x.id!==state.sel;}); state.sel=null; closePop(); renderAll(); }
@@ -941,13 +958,6 @@
   function getBlockFor(a){ for(var i=0;i<state.blocks.length;i++) if(state.blocks[i].act===a.id) return state.blocks[i]; return null; }
   function ensureBlock(a){ var b=getBlockFor(a); if(!b){ b={ id:uid("b"), act:a.id, start:state.viewStart, end:state.viewStart, recur:"none", interval:1, until:null, openEnd:false }; state.blocks.push(b); } return b; }
   function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
-  function rowAuto(b){
-    var per=perDays(b);
-    if(b.daily)        return "每天开放 · 每周一起连续"+per+"天"+(b.until?(" · 循环至"+b.until):" · 永不结束");
-    if(b.recur==="weekly")  return "每周"+WDN[weekday(b.start)]+" · 每次"+per+"天 · "+(b.until?("循环至"+b.until):"永不结束");
-    if(b.recur==="monthly") return "每月"+parse(b.start).getUTCDate()+"号 · 每次"+per+"天 · "+(b.until?("循环至"+b.until):"永不结束");
-    return b.openEnd ? ("持续开放（"+b.start+" 起铺满）") : ("单次 "+b.start+" → "+b.end+"（"+per+"天）");
-  }
   var ganttTimer=0;
   function syncGantt(){ clearTimeout(ganttTimer); ganttTimer=setTimeout(function(){ renderRows(); }, 120); }   // 表格连续输入时防抖，避免每敲一键全量重绘
   function renderTable(){
@@ -984,7 +994,6 @@
         +'<td><span class="dwrap'+(emptyEnd?' empty':'')+'"><input type="date" class="dtinput" data-k="end" value="'+endV+'"'+(b?"":" disabled")+'><span class="dtghost">永不结束</span></span></td>'
         +'<td class="num">'+perCell+'</td>'
         +'<td class="rep">'+repCell+'</td>'
-        +'<td class="auto">'+(b?esc(rowAuto(b)):"—")+'</td>'
         +'<td><input data-k="note" value="'+esc(a.note||"")+'"></td>'
         +'<td><button class="del" data-del="1" title="删除事项">✕</button></td>'
         +'</tr>';
@@ -1017,7 +1026,6 @@
       else { b.openEnd=false; }
       renderTable(); syncGantt(); return;
     }
-    var c=tr.querySelector(".auto"); if(c) c.textContent=rowAuto(b);
     // 单次改结束会切换 openEnd，影响“每次持续/重复日”只读单元格 → 重建该行简单起见整表重建仅当涉及 end/openEnd
     syncGantt();
   }
