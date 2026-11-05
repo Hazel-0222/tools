@@ -723,7 +723,13 @@
   document.getElementById("prev").addEventListener("click",function(){ shiftView(-1); });
   document.getElementById("next").addEventListener("click",function(){ shiftView(1); });
   function shiftView(dir){ state.viewStart=addDays(state.viewStart, dir*Math.min(state.numDays, 28)); closePop(); renderAll(); }
-  document.getElementById("today").addEventListener("click",function(){ state.viewStart=addDays(TODAY,-Math.floor(state.numDays/2)); closePop(); renderAll(); });
+  function scrollToToday(){
+    // 让“今天”列（编号=DAY列）居中显示。clientWidth 含左侧 216px 标签栏，可视日区=clientWidth-216
+    var idx=diffDays(state.viewStart, TODAY), dw=state.dayWidth;
+    var cw=canvasWrap, max=cw.scrollWidth-cw.clientWidth;
+    cw.scrollLeft=clamp(idx*dw - (cw.clientWidth-216)/2, 0, Math.max(0,max));
+  }
+  document.getElementById("today").addEventListener("click",function(){ state.viewStart=addDays(TODAY,-Math.floor(state.numDays/2)); closePop(); renderAll(); scrollToToday(); });
   document.getElementById("addAct").addEventListener("click",addActivity);
   document.getElementById("clearBtn").addEventListener("click",function(){
     if(!confirm("确定清空所有事项和排期？此操作不可撤销。")) return;
