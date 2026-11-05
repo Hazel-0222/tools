@@ -73,6 +73,8 @@
   .daycell .dw{ font-size:10px; } .daycell .dn{ font-size:12px; font-weight:600; color:var(--ink); }
   .daycell.weekend{ background:var(--weekend); }
   .daycell.today .dn{ color:#fff; background:var(--accent); border-radius:50%; width:18px; height:18px; display:flex; align-items:center; justify-content:center; }
+  @keyframes todayPulse{ 0%{ box-shadow:0 0 0 0 rgba(47,111,237,.55); } 60%{ box-shadow:0 0 0 11px rgba(47,111,237,0); } 100%{ box-shadow:0 0 0 0 rgba(47,111,237,0); } }
+  .daycell.flash .dn{ animation:todayPulse .85s ease-out 2; }
   .rows{ position:relative; z-index:1; }
   .row{ display:flex; height:var(--rowh); border-bottom:1px solid var(--line); }
   .row:hover{ background:rgba(47,111,237,.03); }
@@ -734,15 +736,21 @@
   document.getElementById("next").addEventListener("click",function(){ shiftView(1); });
   function shiftView(dir){ state.viewStart=addDays(state.viewStart, dir*Math.min(state.numDays, 28)); closePop(); renderAll(); }
   function scrollToToday(){
-    // 让“今天”列（.daycell.today）精确居中于可视区。216=左侧固定标签栏宽，列中心对准视区中央
-    var cw=canvasWrap, max=Math.max(0,cw.scrollWidth-cw.clientWidth);
+    var cw=canvasWrap;
     var tc=headTrack.querySelector(".daycell.today");
-    if(tc){ cw.scrollLeft=216+tc.offsetLeft+(tc.offsetWidth/2)-(cw.clientWidth/2); }
-    else {
+    if(tc){
+      // 视觉反馈：今天列脉冲一次——即便视图本就以今天为中心（无滚可跳），也能看出按钮生效
+      tc.classList.add("flash");
+      clearTimeout(tc._ft); tc._ft=setTimeout(function(){ tc.classList.remove("flash"); }, 1900);
+      // 原生居中滚动（优先，确保理会到今列）；失败回退手工定位
+      try{ tc.scrollIntoView({inline:"center", block:"nearest"}); return; }catch(e){}
+      var max=Math.max(0,cw.scrollWidth-cw.clientWidth);
+      cw.scrollLeft=clamp(216+tc.offsetLeft+(tc.offsetWidth/2)-(cw.clientWidth/2), 0, max);
+    } else {
       var idx=diffDays(state.viewStart, TODAY);
-      cw.scrollLeft=(idx*state.dayWidth)-(cw.clientWidth-216)/2;   // 兜底：今天不在视区时回退到数学定位
+      var max=Math.max(0,cw.scrollWidth-cw.clientWidth);
+      cw.scrollLeft=clamp((idx*state.dayWidth)-(cw.clientWidth-216)/2, 0, max);   // 兜底：今天不在视区时回退数学定位
     }
-    cw.scrollLeft=clamp(cw.scrollLeft, 0, max);
   }
   document.getElementById("today").addEventListener("click",function(){
     state.viewStart=addDays(TODAY,-Math.floor(state.numDays/2)); setTab("gantt"); closePop(); renderAll(); scrollToToday();
