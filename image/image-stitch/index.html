@@ -10,6 +10,8 @@
             t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         }
         document.documentElement.setAttribute('data-theme', t);
+        var b = localStorage.getItem('imgStitch_bgPreset');
+        if (b && b !== 'purple') document.documentElement.setAttribute('data-bg', b);
     } catch (e) {}
 })();
 </script>
@@ -21,11 +23,15 @@
 :root {
     /* ── 与工具合集首页保持一致的设计 Token ── */
     --bg: #eef0fb;
+    --bg1: rgba(0,113,227,.145);
+    --bg2: rgba(122,92,255,.125);
+    --bg3: rgba(255,154,186,.105);
+    --bgbase1: #e7ecfb; --bgbase2: #eee9fc; --bgbase3: #f6ecf2;
     --page-bg-image:
-        radial-gradient(900px 520px at 10% -10%, rgba(0,113,227,.145), transparent 60%),
-        radial-gradient(760px 480px at 90% 0%, rgba(122,92,255,.125), transparent 60%),
-        radial-gradient(840px 560px at 50% 108%, rgba(255,154,186,.105), transparent 60%),
-        linear-gradient(165deg, #e7ecfb 0%, #eee9fc 55%, #f6ecf2 100%);
+        radial-gradient(900px 520px at 10% -10%, var(--bg1), transparent 60%),
+        radial-gradient(760px 480px at 90% 0%, var(--bg2), transparent 60%),
+        radial-gradient(840px 560px at 50% 108%, var(--bg3), transparent 60%),
+        linear-gradient(165deg, var(--bgbase1) 0%, var(--bgbase2) 55%, var(--bgbase3) 100%);
     --card-bg: #ffffff;
     --input-bg: rgba(255,255,255,0.85);
     --text: #1d1d1f;
@@ -62,11 +68,10 @@
 }
 [data-theme="dark"] {
     --bg: #0f1016;
-    --page-bg-image:
-        radial-gradient(900px 520px at 10% -10%, rgba(80,140,255,.13), transparent 60%),
-        radial-gradient(760px 480px at 90% 0%, rgba(139,124,255,.10), transparent 60%),
-        radial-gradient(840px 560px at 50% 108%, rgba(255,140,180,.06), transparent 60%),
-        linear-gradient(165deg, #12131f 0%, #0f0f1a 55%, #150f1b 100%);
+    --bg1: rgba(80,140,255,.13);
+    --bg2: rgba(139,124,255,.10);
+    --bg3: rgba(255,140,180,.06);
+    --bgbase1: #12131f; --bgbase2: #0f0f1a; --bgbase3: #150f1b;
     --card-bg: #1a1b22;
     --input-bg: #14151c;
     --text: #ededf1;
@@ -100,6 +105,17 @@
     --shadow: 0 1px 2px rgba(0,0,0,0.5);
     --shadow-hover: 0 8px 24px rgba(0,0,0,0.5);
 }
+/* ── 页面背景主题色（圆点预设，data-bg 切换；默认紫罗兰=不设属性） ── */
+:root[data-bg="sky"]    { --bg1: rgba(0,150,255,.15); --bg2: rgba(56,140,255,.12); --bg3: rgba(110,200,255,.10); --bgbase1: #e7f2fb; --bgbase2: #e9f0fc; --bgbase3: #eaf3f8; }
+[data-theme="dark"][data-bg="sky"]    { --bg1: rgba(0,150,245,.14); --bg2: rgba(70,145,255,.10); --bg3: rgba(110,195,255,.06); --bgbase1: #0d1726; --bgbase2: #0e1624; --bgbase3: #101723; }
+:root[data-bg="mint"]   { --bg1: rgba(0,190,150,.15);  --bg2: rgba(50,205,180,.12);  --bg3: rgba(120,225,170,.10); --bgbase1: #e6f6f1; --bgbase2: #e6f3f4; --bgbase3: #ecf5ee; }
+[data-theme="dark"][data-bg="mint"]   { --bg1: rgba(0,175,140,.14); --bg2: rgba(60,205,175,.09);  --bg3: rgba(120,220,175,.06); --bgbase1: #0c1c19; --bgbase2: #0d1c1d; --bgbase3: #0e1b16; }
+:root[data-bg="coral"]  { --bg1: rgba(255,150,90,.16); --bg2: rgba(250,115,95,.13);  --bg3: rgba(255,200,120,.10); --bgbase1: #faefe8; --bgbase2: #faede9; --bgbase3: #f5f0e9; }
+[data-theme="dark"][data-bg="coral"]  { --bg1: rgba(250,140,80,.16);  --bg2: rgba(235,105,85,.11);  --bg3: rgba(245,180,110,.07); --bgbase1: #231812; --bgbase2: #221512; --bgbase3: #201a13; }
+:root[data-bg="sakura"] { --bg1: rgba(245,120,185,.15); --bg2: rgba(255,150,165,.13); --bg3: rgba(255,195,150,.10); --bgbase1: #f9ecf2; --bgbase2: #f9eef0; --bgbase3: #f5eff0; }
+[data-theme="dark"][data-bg="sakura"] { --bg1: rgba(235,110,175,.15); --bg2: rgba(255,140,150,.09); --bg3: rgba(255,175,160,.06); --bgbase1: #22151d; --bgbase2: #20151b; --bgbase3: #1d1617; }
+:root[data-bg="slate"] { --bg1: rgba(115,125,145,.16); --bg2: rgba(150,160,175,.12); --bg3: rgba(180,190,205,.10); --bgbase1: #edf0f3; --bgbase2: #eceff4; --bgbase3: #edf1f2; }
+[data-theme="dark"][data-bg="slate"] { --bg1: rgba(120,130,150,.13); --bg2: rgba(150,160,175,.08); --bg3: rgba(185,195,210,.06); --bgbase1: #14161c; --bgbase2: #13151b; --bgbase3: #15171c; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body {
@@ -115,22 +131,13 @@ body {
 }
 .page { max-width: 820px; margin: 0 auto; }
 
-/* ── 顶栏：返回链接 + 主题切换 ── */
+/* ── 顶栏：主题切换 ── */
 .topbar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     margin-bottom: 20px;
 }
-.back-link {
-    color: var(--text-secondary);
-    text-decoration: none;
-    font-size: 14px;
-    font-weight: 500;
-    padding: 6px 10px 6px 0;
-    transition: color 0.15s;
-}
-.back-link:hover { color: var(--primary); }
 .theme-toggle {
     width: 38px; height: 38px;
     border-radius: 50%;
@@ -140,6 +147,19 @@ body {
     transition: transform 0.15s, border-color 0.15s;
 }
 .theme-toggle:hover { transform: scale(1.08); }
+.bg-dots { display: flex; align-items: center; gap: 8px; margin-right: 12px; }
+.bg-dot {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    border: 2px solid var(--card-bg);
+    box-shadow: 0 0 0 1px var(--border);
+    background: var(--dot);
+    cursor: pointer;
+    padding: 0;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+.bg-dot:hover { transform: scale(1.2); }
+.bg-dot.active { box-shadow: 0 0 0 2px var(--primary); }
 
 /* ── 面板 ── */
 .panel {
@@ -353,15 +373,23 @@ body {
     border-color: var(--primary);
     box-shadow: 0 0 0 3px var(--focus-ring);
 }
-.color-preview {
-    display: inline-block;
+.color-picker {
     width: 30px; height: 30px;
-    border-radius: 8px;
+    padding: 0;
     border: 1px solid var(--border);
-    vertical-align: middle;
+    border-radius: 8px;
+    background: var(--input-bg);
     margin-left: 8px;
     flex-shrink: 0;
+    cursor: pointer;
+    transition: box-shadow 0.15s;
 }
+.color-picker:hover { box-shadow: 0 0 0 3px var(--focus-ring); }
+.color-picker:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+/* 覆盖原生色块：去掉默认内边距/描边/直角，让它铺满外层圆角 */
+.color-picker::-webkit-color-swatch-wrapper { padding: 0; }
+.color-picker::-webkit-color-swatch { border: none; border-radius: 7px; }
+.color-picker::-moz-color-swatch { border: none; border-radius: 7px; }
 
 .option-row {
     display: flex;
@@ -476,6 +504,13 @@ progress::-moz-progress-bar { background: var(--primary); border-radius: 999px; 
     color: var(--text-secondary);
     line-height: 1.6;
 }
+.footer-copy {
+    text-align: center;
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    opacity: 0.75;
+}
 
 .hidden { display: none !important; }
 
@@ -491,7 +526,14 @@ progress::-moz-progress-bar { background: var(--primary); border-radius: 999px; 
 <div class="page">
     <!-- 顶栏 -->
     <div class="topbar">
-        <a class="back-link" href="../../index.html">← 返回工具集</a>
+        <div class="bg-dots" id="bgDots" aria-label="页面背景主题">
+            <button type="button" class="bg-dot active" data-bg-preset="purple" style="--dot:#9a7bff" title="紫罗兰"></button>
+            <button type="button" class="bg-dot" data-bg-preset="sky"    style="--dot:#00a9ff" title="天蓝"></button>
+            <button type="button" class="bg-dot" data-bg-preset="mint"   style="--dot:#00c79a" title="薄荷"></button>
+            <button type="button" class="bg-dot" data-bg-preset="coral"  style="--dot:#ff8f5a" title="珊瑚"></button>
+            <button type="button" class="bg-dot" data-bg-preset="sakura" style="--dot:#f578b9" title="樱花"></button>
+            <button type="button" class="bg-dot" data-bg-preset="slate"  style="--dot:#8a95a8" title="岩灰"></button>
+        </div>
         <button class="theme-toggle" id="themeBtn" type="button" aria-label="切换明暗模式">🌙</button>
     </div>
 
@@ -546,9 +588,10 @@ progress::-moz-progress-bar { background: var(--primary); border-radius: 999px; 
             <div class="param-item">
                 <label><span class="label-dot"></span>背景色</label>
                 <div style="display:flex;align-items:center;width:100%">
-                    <input type="text" id="bgColor" value="#FFFFFF" style="min-width:0;flex:1">
-                    <span id="colorPreview" class="color-preview" style="background: #FFFFFF;"></span>
+                    <input type="text" id="bgColor" value="#FFFFFF" style="min-width:0;flex:1" placeholder="#FFFFFF">
+                    <input type="color" id="bgColorPicker" class="color-picker" value="#FFFFFF" aria-label="选择背景色">
                 </div>
+                <div class="sublabel">点击右侧色块弹出取色器，或直接输入 #RRGGBB</div>
             </div>
             <div class="param-item"><label><span class="label-dot"></span>图片间隙 (px)</label><input type="number" id="gap" value="10" min="0" step="2"></div>
             <div class="param-item"><label><span class="label-dot"></span>四周留白 (px)</label><input type="number" id="margin" value="20" min="0" step="5"></div>
@@ -579,6 +622,9 @@ progress::-moz-progress-bar { background: var(--primary); border-radius: 999px; 
         <!-- 页脚 -->
         <div class="footer">图片将在浏览器中处理，不会上传服务器 · 拖拽文件列表的 ⋮⋮ 可调整顺序</div>
     </div>
+
+    <!-- 版权 -->
+    <div class="footer-copy">© 2026 HazelBox · 保留所有权利</div>
 </div>
 
 <script>
@@ -591,7 +637,7 @@ progress::-moz-progress-bar { background: var(--primary); border-radius: 999px; 
     const showExt = document.getElementById('showExt');
     const extOpt = document.getElementById('ext-opt');
     const bgColorInput = document.getElementById('bgColor');
-    const colorPreview = document.getElementById('colorPreview');
+    const bgColorPicker = document.getElementById('bgColorPicker');
     const gapInput = document.getElementById('gap');
     const marginInput = document.getElementById('margin');
     const processBtn = document.getElementById('processBtn');
@@ -619,6 +665,16 @@ progress::-moz-progress-bar { background: var(--primary); border-radius: 999px; 
         try { localStorage.setItem('ui-theme', next); } catch (e) {}
         applyTheme(next);
     });
+
+    // ── 页面背景主题色（圆点预设切换） ──
+    function applyBgPreset(name) {
+        if (name && name !== 'purple') document.documentElement.setAttribute('data-bg', name);
+        else document.documentElement.removeAttribute('data-bg');
+        document.querySelectorAll('.bg-dot').forEach(d => d.classList.toggle('active', d.dataset.bgPreset === name));
+        try { localStorage.setItem('imgStitch_bgPreset', name || 'purple'); } catch (e) {}
+    }
+    document.querySelectorAll('.bg-dot').forEach(d => d.addEventListener('click', () => applyBgPreset(d.dataset.bgPreset)));
+    applyBgPreset(localStorage.getItem('imgStitch_bgPreset') || 'purple');
 
     // ── 日志 / 状态 ──
     function addLog(msg, type = 'info') {
@@ -649,7 +705,7 @@ progress::-moz-progress-bar { background: var(--primary); border-radius: 999px; 
             const s = JSON.parse(localStorage.getItem('imgStitch_settings'));
             if (s) {
                 if (s.imgWidth !== undefined) imgWidthInput.value = s.imgWidth;
-                if (s.bgColor) { bgColorInput.value = s.bgColor; colorPreview.style.background = s.bgColor; }
+                if (s.bgColor) { bgColorInput.value = s.bgColor; syncPickerFromText(); }
                 if (s.gap) gapInput.value = s.gap;
                 if (s.margin) marginInput.value = s.margin;
                 if (s.mode) modeRadios.forEach(r => { if (r.value === s.mode) r.checked = true; });
@@ -804,10 +860,15 @@ progress::-moz-progress-bar { background: var(--primary); border-radius: 999px; 
         fileInput.value = '';
     }
 
-    // ====== 颜色预览 ======
-    function updateColorPreview() { colorPreview.style.background = bgColorInput.value.trim(); }
-    bgColorInput.addEventListener('input', () => { updateColorPreview(); saveSettings(); });
-    updateColorPreview();
+    // ====== 背景色：取色器 ⇄ 文本框双向同步 ======
+    function syncPickerFromText() {
+        let v = bgColorInput.value.trim();
+        if (/^#[0-9a-fA-F]{6}$/.test(v)) bgColorPicker.value = v;
+        else if (/^[0-9a-fA-F]{6}$/.test(v)) bgColorPicker.value = '#' + v;
+    }
+    bgColorInput.addEventListener('input', () => { syncPickerFromText(); saveSettings(); });
+    bgColorPicker.addEventListener('input', () => { bgColorInput.value = bgColorPicker.value; saveSettings(); });
+    syncPickerFromText();
 
     function getParams() {
         let width = parseInt(imgWidthInput.value, 10) || null;
@@ -863,9 +924,12 @@ progress::-moz-progress-bar { background: var(--primary); border-radius: 999px; 
         ctx.fillStyle = textColor;
         ctx.font = info.fontSize + 'px "Microsoft YaHei","微软雅黑",sans-serif';
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
+        ctx.textBaseline = 'middle';
+        // 文字块整体在标签带内上下居中：先把整个文字块的行高算到带内居中起点，再逐行按中线绘制
+        const blockTop = labelY + (labelH - info.lines.length * info.lineH) / 2;
+        const lineCenter = blockTop + info.lineH / 2;
         for (let i = 0; i < info.lines.length; i++) {
-            ctx.fillText(info.lines[i], imgWidth / 2, labelY + 6 + i * info.lineH);
+            ctx.fillText(info.lines[i], imgWidth / 2, lineCenter + i * info.lineH);
         }
         return labelH;
     }
@@ -937,17 +1001,18 @@ progress::-moz-progress-bar { background: var(--primary); border-radius: 999px; 
 
     async function processVerticalMode(loadedImages, gap, margin, bgColor) {
         const N = loadedImages.length; addLog('长拼图：垂直拼接 ' + N + ' 张图片');
+        // 统一宽度：所有图等比缩放到同一宽度（最大宽），不变形，缝隙/留白=0 时两侧不露白底
         const maxWidth = Math.max(...loadedImages.map(img => img.width));
-        let totalImgHeight = 0; for (let img of loadedImages) totalImgHeight += img.height;
+        const resizedHeights = loadedImages.map(img => Math.round(img.height * (maxWidth / img.width)));
+        let totalImgHeight = 0; for (const h of resizedHeights) totalImgHeight += h;
         const totalHeight = totalImgHeight + (N - 1) * gap + 2 * margin, totalWidth = maxWidth + 2 * margin;
         const canvas = document.createElement('canvas'); canvas.width = totalWidth; canvas.height = totalHeight;
         const ctx = canvas.getContext('2d'); ctx.fillStyle = bgColor; ctx.fillRect(0, 0, totalWidth, totalHeight);
         let currentY = margin;
         for (let i = 0; i < N; i++) {
-            const imgW = loadedImages[i].width;
-            const offsetX = margin + Math.floor((maxWidth - imgW) / 2);
-            ctx.drawImage(loadedImages[i], offsetX, currentY, imgW, loadedImages[i].height);
-            currentY += loadedImages[i].height + gap;
+            const imgH = resizedHeights[i];
+            ctx.drawImage(loadedImages[i], margin, currentY, maxWidth, imgH);
+            currentY += imgH + gap;
         }
         return { canvas, totalWidth, totalHeight };
     }
