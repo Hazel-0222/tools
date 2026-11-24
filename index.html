@@ -232,7 +232,8 @@ const TOOLS = [
     { "name": "Word 差异对比", "desc": "对比两个 .docx 文档差异，段落级比对，支持导出报告", "category": "Word", "path": "word/word-diff/" },
     { "name": "Excel 目录生成", "desc": "自动生成工作表目录页，超链接跳转，纯浏览器处理", "category": "Excel", "path": "excel/excel-add-toc/" },
     { "name": "排期日程", "desc": "按天甘特图排布日程，支持每周/每月循环自动铺色，可导入导出 Excel", "category": "Schedule", "path": "schedule/activity-scheduler/" },
-    { "name": "思维导图", "desc": "Markdown 与脑图双向同步编辑，支持拖拽调整、导出图片与 Markdown", "category": "Mind", "path": "mindmap/" }
+    { "name": "思维导图", "desc": "Markdown 与脑图双向同步编辑，支持拖拽调整、导出图片与 Markdown", "category": "Mind", "path": "mindmap/" },
+    { "name": "泳道图", "desc": "工种×阶段矩阵泳道图，端口连线可对标点选，导出 PNG/PDF/Excel/JSON", "category": "Diagram", "path": "swimlane/" }
 ];
 
 // 分类元信息（图标 + 卡片头说明）
@@ -241,7 +242,8 @@ const CATEGORY_META = {
     Word:  { icon: "📄", desc: "Word 文档处理工具" },
     Excel: { icon: "📊", desc: "Excel 表格处理工具" },
     Schedule: { icon: "📅", desc: "排期与日程工具" },
-    Mind: { icon: "🧠", desc: "思维导图工具" }
+    Mind: { icon: "🧠", desc: "思维导图工具" },
+    Diagram: { icon: "D", desc: "流程图与泳道图工具" }
 };
 
 const slug = s => String(s).toLowerCase().replace(/\s+/g, '-').replace(/[^\w一-龥-]/g, '');

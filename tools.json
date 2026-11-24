@@ -40,5 +40,11 @@
         "desc": "Markdown 与脑图双向同步编辑，支持拖拽调整、导出图片与 Markdown",
         "category": "Mind",
         "path": "mindmap/"
+    },
+    {
+        "name": "泳道图",
+        "desc": "工种×阶段矩阵泳道图，端口连线可对标点选，导出 PNG/PDF/Excel/JSON",
+        "category": "Diagram",
+        "path": "swimlane/"
     }
 ]

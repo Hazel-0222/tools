@@ -1,0 +1,2707 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>泳道图</title>
+<script>
+// 主题预载（防闪烁）：与首页共用 localStorage['ui-theme']
+(function () {
+    try {
+        var t = localStorage.getItem('ui-theme');
+        if (t !== 'light' && t !== 'dark') {
+            t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', t);
+    } catch (e) {}
+})();
+</script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Microsoft YaHei', '微软雅黑', 'PingFang SC', 'Segoe UI', sans-serif;
+    font-size: 13px;
+}
+/* 全界面统一微软雅黑（含表单控件 / 画布元素 / SVG 连线文字） */
+body, button, input, textarea, select, .rt-editor, .step, .note, #edges text {
+    font-family: 'Microsoft YaHei', '微软雅黑', 'PingFang SC', 'Segoe UI', sans-serif;
+}
+/* ── 主题 Token：仅影响工具栏/弹窗外壳；画布纸面固定白色（导出稳定） ── */
+:root {
+    --bg: #eef0fb;
+    --panel-bg: #ffffff;
+    --text: #1d1d1f;
+    --text-secondary: #6e6e73;
+    --border: #e2e2e7;
+    --primary: #0071e3;
+    --btn-bg: #ffffff;
+    --btn-border: #d8d8de;
+    --shadow: 0 1px 3px rgba(0,0,0,.06);
+    --grid-dot: rgba(0,0,0,.05);
+    /* 表格边框三层灰阶（画布纸面固定，不随暗色主题变）：
+       连线 #40454c 最深 → 所有实线统一 --grid-solid → 左右虚线统一 --grid-dash（逐层变浅） */
+    --grid-solid: #6b7683;
+    --grid-dash:  #96a2af;
+}
+[data-theme="dark"] {
+    --bg: #0f1016;
+    --panel-bg: #1a1b22;
+    --text: #ededf1;
+    --text-secondary: #9a9ba5;
+    --border: #2a2b33;
+    --primary: #5ea2f5;
+    --btn-bg: #14151c;
+    --btn-border: #33343e;
+    --shadow: 0 1px 2px rgba(0,0,0,.5);
+    --grid-dot: rgba(0,0,0,.22);
+}
+
+html, body { height: 100%; }
+body {
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* ── 顶栏 ── */
+.topbar {
+    height: 48px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 16px;
+    background: var(--panel-bg);
+    border-bottom: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    z-index: 20;
+}
+.topbar h1 { font-size: 15px; font-weight: 700; white-space: nowrap; letter-spacing: 1px; }
+.topbar .sep { color: var(--border); font-size: 16px; }
+.title-label { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+.title-input {
+    width: 220px; height: 30px;
+    border: 1px solid var(--btn-border);
+    border-radius: 6px;
+    background: var(--btn-bg);
+    color: var(--text);
+    padding: 0 10px;
+    font: inherit; font-size: 13px;
+    outline: none;
+}
+.title-input:focus { border-color: var(--primary); }
+.spacer { flex: 1; }
+.text-btn {
+    height: 30px; padding: 0 12px;
+    border: 1px solid var(--btn-border);
+    border-radius: 6px;
+    background: var(--btn-bg);
+    color: var(--text);
+    font: inherit; font-size: 12.5px;
+    cursor: pointer;
+}
+.text-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+/* ── 工具栏 ── */
+.toolbar {
+    height: 44px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 16px;
+    background: var(--panel-bg);
+    border-bottom: 1px solid var(--border);
+    z-index: 15;
+}
+.btn {
+    display: inline-flex; align-items: center;
+    height: 30px; padding: 0 13px;
+    border: 1px solid var(--btn-border);
+    border-radius: 7px;
+    background: var(--btn-bg);
+    color: var(--text);
+    font: inherit; font-size: 12.5px;
+    cursor: pointer;
+    transition: border-color .15s;
+}
+.btn:hover { border-color: var(--primary); }
+.btn-danger:hover { border-color: #d44c47; color: #d44c47; }
+.btn.sm { height: 26px; padding: 0 10px; font-size: 12px; }
+.btn.active { border-color: var(--primary); color: var(--primary); }
+.btn:disabled { opacity: .45; cursor: default; pointer-events: none; }
+.toolbar .btn-sep { width: 1px; height: 22px; background: var(--btn-border); margin: 0 2px; flex: none; }
+.toolbar .status {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    flex: 1; min-width: 0;
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ── 画布 —— 纸白固定，不随主题变色 ── */
+#wrap {
+    flex: 1;
+    overflow: auto;
+    position: relative;
+}
+#wrap::-webkit-scrollbar { width: 8px; height: 8px; }
+#wrap::-webkit-scrollbar-thumb { background: #c9ccd4; border-radius: 4px; }
+
+#canvas {
+    position: relative;
+    margin: 20px auto;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(13,25,60,.10), 0 20px 48px -16px rgba(13,25,60,.16);
+    background-image: radial-gradient(circle, var(--grid-dot) 1px, transparent 1px);
+    background-size: 14px 14px;
+    user-select: none;
+    outline: none;
+}
+
+/* ── 表头（纸面内，固定浅色） ── */
+.hdr-corner {
+    position: absolute; left: 0; top: 0;
+    width: 42px; z-index: 4;
+    background: #fbfbfc;
+    border-bottom: 1.5px solid var(--grid-solid);
+    border-right: 1.5px solid var(--grid-solid);
+}
+.hdr-role {
+    position: absolute; top: 0;
+    height: 56px;
+    background: #337ea9;
+    border-bottom: 1.5px solid var(--grid-solid);
+    border-right: 1.5px solid var(--grid-solid);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 4;
+}
+.role-name {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #ffffff;
+    text-align: center;
+    padding: 2px 6px;
+    border-radius: 5px;
+    outline: none;
+    cursor: text;
+    white-space: nowrap;
+    overflow: hidden;
+}
+.role-name:hover { background: rgba(255,255,255,.16); }
+.hdr-role .role-tools {
+    position: absolute; top: 3px; right: 3px;
+    display: flex; gap: 3px;
+    opacity: 0; transition: opacity .15s;
+}
+.hdr-role:hover .role-tools { opacity: 1; }
+.hdr-phase {
+    position: absolute; left: 0;
+    width: 42px;
+    background: #fbfbfc;
+    border-right: 1.5px solid var(--grid-solid);
+    border-bottom: 1.5px solid var(--grid-solid);
+    z-index: 4;
+}
+/* 父阶段名（左侧竖排）：跨整段（含各子阶段带 + 各子行）合并居中 */
+.phase-name {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 42px;
+    display: flex; align-items: center; justify-content: center;
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    font-size: 13.5px;
+    font-weight: 700;
+    letter-spacing: 5px;
+    color: #333a48;
+    padding: 4px 4px;
+    border-radius: 5px;
+    outline: none;
+    cursor: text;
+    max-height: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+.phase-name:hover { background: rgba(0,0,0,.05); }
+.hdr-phase .phase-tools {
+    position: absolute; bottom: 4px; right: 4px;
+    display: flex; gap: 3px;
+    opacity: 0; transition: opacity .15s;
+    z-index: 6;
+}
+.hdr-phase:hover .phase-tools { opacity: 1; }
+.hdr-tool {
+    height: 20px; padding: 0 5px;
+    border: none; border-radius: 4px;
+    background: rgba(0,0,0,.07);
+    color: #444b5a;
+    font: inherit; font-size: 10.5px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.hdr-tool:hover { background: rgba(0,0,0,.14); }
+/* 工种表头为饱和色底 → 悬浮工具按钮用白色系 */
+.hdr-role .hdr-tool {
+    background: rgba(255,255,255,.20);
+    color: #ffffff;
+}
+.hdr-role .hdr-tool:hover { background: rgba(255,255,255,.34); }
+
+/* ── 整表外框 + 分隔线 & 阶段行：实线统一 --grid-solid，虚线 --grid-dash（层序：连线 #40454c 最深 → 实线 → 虚线） ──
+   外框是「无背景只画边界环」的元素：z-index 5 压在所有表头/格底/备注之上，
+   只在整表最外圈画出 3px 粗统一色实线（比内部 1.5px 实线明显粗一档），不遮挡表格内容。 */
+.table-frame {
+    position: absolute; left: 0; top: 0;
+    border: 3px solid var(--grid-solid);   /* 外框最粗实线（统一色，明显粗于内部 1.5px 实线） */
+    z-index: 5;
+    pointer-events: none;
+    box-sizing: border-box;
+}
+/* 纵向网格线不再单画 .vline：直接由每格 cell-bg 的 border-right 承当，避免同一条边界双线叠加 */
+.grow {
+    position: absolute; left: 42px;
+    cursor: crosshair;
+    z-index: 1;
+    /* 横向线已由 cell-bg/note 的 border-bottom 承当，此处不再描边（避免双线） */
+}
+/* 数据格淡底块色：第二行第二列起的每个格子按所在工种列淡底轮换；border 即网格线 */
+.cell-bg {
+    position: absolute;
+    z-index: 1;
+    pointer-events: none;
+    border-right: 1.5px solid var(--grid-solid);
+    border-bottom: 1.5px solid var(--grid-solid);
+}
+/* 注意事项列：双击打开富文本编辑器（可插链接）；格内只读，左对齐、垂直居中，链接可点 */
+.note {
+    position: absolute;
+    z-index: 2;
+    text-align: left;
+    display: flex; align-items: center;
+    padding: 8px 12px;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: #2a2f3a;
+    word-break: break-word;
+    overflow: hidden;
+    box-sizing: border-box;
+    border-right: 1.5px solid var(--grid-solid);   /* 与 cell-bg 同源：竖线由每格右边线承当，说明格也要画，否则新列/右邻列之间断线 */
+    /* 底边框只在阶段最后一个子段带内联设置（阶段底边线），中间带边界由 .subband 虚线承担 */
+    user-select: text;                            /* 允许选中/复制（如复制链接） */
+}
+.note a { color: #0a66c2; text-decoration: underline; cursor: pointer; }
+.note img { max-width: 100%; height: auto; display: block; margin: 2px 0; border-radius: 4px; }
+.note:hover { cursor: grab; }                     /* 说明格可拖动到另一说明格（悬停给抓手提示，不阻断文字选中/链接点击） */
+.note.dragging-note { opacity: .45; cursor: grabbing; }
+.note.drop-target { outline: 2px dashed #0071e3; outline-offset: -2px; z-index: 3; }   /* 拖放目标高亮 */
+body.note-dragging .note { user-select: none; }   /* 拖拽进行中不再选中文字，避免与目标定位打架 */
+/* 子阶段带边界线（左右虚线，统一 --grid-dash，比实线浅一档）：子阶段之间的分隔。
+    z-index:2 使虚线盖过「注意事项」格不透明底色，延伸到整行（含注意事项列）可见；
+    步骤节点 DOM 顺序在后且同为 z-index:2，仍压在这条线之上。 */
+.subband {
+    position: absolute;
+    height: 0;
+    border-top: 1.5px dashed var(--grid-dash);
+    z-index: 2;
+    pointer-events: none;
+}
+
+/* ── 步骤节点 ── */
+.step {
+    position: absolute;
+    border-radius: 8px;
+    border: 2px solid #40454c;      /* 深灰边框：与连线/箭头同色统一 */
+    box-sizing: border-box;         /* 高度含内边距/边框 */
+    background: #ffffff;            /* 白底，不透出下方颜色格 */
+    box-shadow: 0 1px 2px rgba(0,0,0,.05);
+    padding: 3px 8px;               /* 上下留白进一步收紧（一行字步骤） */
+    font-size: 12.5px;
+    font-weight: 600;               /* 步骤文字加粗 */
+    line-height: 1.6;               /* 12.5px × 1.6 = 20px，与 STEP_LH=20 对齐：实际行高=估计行高，行数再多留白也不变 */
+    color: #2a2f3a;                 /* 步骤文字与说明列文本同色（深灰蓝黑） */
+    text-align: center;
+    display: flex;                  /* 内层 .center-block 在盒内上下+左右双居中（文字永居中） */
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    z-index: 2;
+    overflow: hidden;
+    white-space: pre-wrap;
+    word-break: break-word;
+    transition: box-shadow .12s;
+}
+/* 步骤/注意事项内容的内层块：flex 只包这一个块做居中，文字与行内链接在块内正常接排 */
+.center-block { display: block; }
+.step:hover { box-shadow: 0 4px 14px rgba(0,0,0,.10); }
+.step.selected { outline: 2px solid #337ea9; outline-offset: -1px; }
+.step.dragging { cursor: grabbing; box-shadow: 0 8px 22px rgba(0,0,0,.16); }
+.step.conn-target { outline: 2px dashed #0071e3; outline-offset: 2px; }
+.step a { color: #0a66c2; text-decoration: underline; cursor: pointer; }
+
+/* 连接柄 */
+.pt {
+    position: absolute;
+    width: 9px; height: 9px;
+    background: #337ea9;
+    border: 1.5px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px rgba(51,126,169,.4);
+    opacity: 0;
+    transition: opacity .12s, transform .12s;
+    cursor: crosshair;
+    z-index: 3;
+}
+.step:hover .pt { opacity: .85; }
+.pt:hover { transform: scale(1.45); opacity: 1; }
+.pt.t { top: -5px; left: 50%; margin-left: -4.5px; }
+.pt.b { bottom: -5px; left: 50%; margin-left: -4.5px; }
+.pt.l { left: -5px; top: 50%; margin-top: -4.5px; }
+.pt.r { right: -5px; top: 50%; margin-top: -4.5px; }
+body.connect-mode .pt { opacity: .55; }   /* 点选连线模式：所有节点的口都可见，方便精确点对口 */
+.step.connecting { outline: 2px dashed rgba(51,126,169,.5); outline-offset: 2px; }  /* 已选源口的亮点 */
+#connectGuide {
+    position: fixed; top: 48px; left: 50%; transform: translateX(-50%);
+    display: none; z-index: 70;
+    background: rgba(16,35,63,.92); color: #fff; font-size: 12px;
+    padding: 6px 12px; border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,.25);
+    pointer-events: none; white-space: nowrap;
+}
+#connectGuide.show { display: block; }
+
+/* ── 连线 SVG ── */
+#edges {
+    position: absolute; left: 0; top: 0;
+    pointer-events: none;
+    z-index: 3;
+}
+#edges .edge { pointer-events: none; }
+#edges .edge-hit {
+    pointer-events: stroke;
+    cursor: pointer;
+    fill: none;
+    stroke: transparent;
+    stroke-width: 14;
+}
+#edges .edge-main {
+    fill: none;
+    stroke: #40454c;            /* 深灰连线：与步骤边框/箭头同色统一 */
+    stroke-width: 1.5;
+    stroke-linejoin: round;
+    stroke-linecap: butt;       /* 平头：线端不外凸（round 会伸出≈0.75px 圆头），箭头三角形完全贴合，连线保持顶点自洽平直 */
+}
+#edges .edge-arrow {
+    fill: #40454c;              /* 显式箭头三角形：与连线同色 */
+    stroke: none;
+}
+#edges .edge.selected .edge-main { stroke: #0071e3; stroke-width: 2.1; }
+#edges .edge.selected .edge-arrow { fill: #0071e3; }
+#edges .edge.selected .edge-label text { fill: #0071e3; }
+#edges text {
+    font-family: 'Microsoft YaHei', '微软雅黑', sans-serif;
+    font-size: 12px;
+    fill: #4a5260;
+    stroke: #ffffff;
+    stroke-width: 4px;
+    paint-order: stroke;
+    pointer-events: auto;
+    cursor: pointer;
+}
+#connectLayer {
+    position: absolute; left: 0; top: 0;
+    pointer-events: none;
+    z-index: 5;
+}
+#connectLayer path {
+    fill: none;
+    stroke: #0071e3;
+    stroke-width: 2;
+    stroke-dasharray: 6 4;
+}
+
+/* ── 弹窗 ── */
+.modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(12,14,22,.42);
+    display: none;
+    align-items: center; justify-content: center;
+    z-index: 100;
+}
+.modal-overlay.show { display: flex; }
+.modal {
+    width: 440px;
+    max-width: calc(100vw - 40px);
+    background: var(--panel-bg);
+    border-radius: 12px;
+    box-shadow: 0 24px 72px rgba(0,0,0,.35);
+    padding: 16px 18px;
+    color: var(--text);
+}
+.modal.small { width: 320px; }
+/* 富文本编辑框加宽：工具栏 6 按钮 + 提示需更宽的布排空间，避免按钮文字被挤压换行 */
+#rtModal .modal { width: 620px; }
+.modal h3 { font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+/* Notion 色板单选（默认 + 9 色一组按钮） */
+.swatches { display: flex; flex-wrap: wrap; gap: 7px; margin: 4px 0 2px; }
+.swatch {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 9px;
+    border: 1px solid var(--btn-border);
+    border-radius: 7px;
+    background: var(--btn-bg);
+    color: var(--text);
+    font: inherit; font-size: 12px;
+    cursor: pointer;
+}
+.swatch:hover { border-color: var(--primary); }
+.swatch .sw-circ {
+    width: 13px; height: 13px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,.12);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.35);
+}
+.swatch.sel { outline: 2px solid var(--primary); outline-offset: 1px; }
+.modal input {
+    width: 100%;
+    height: 34px;
+    border: 1px solid var(--btn-border);
+    border-radius: 7px;
+    background: var(--btn-bg);
+    color: var(--text);
+    font: inherit; font-size: 13px;
+    padding: 0 10px;
+    outline: none;
+}
+.modal input:focus { border-color: var(--primary); }
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 14px;
+}
+.rtbar {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 8px;
+    flex-wrap: nowrap;
+}
+.rtbar .btn, .rtbar .rt-bar-sep { flex: none; white-space: nowrap; }
+.rt-hint {
+    font-size: 11.5px; color: var(--text-secondary);
+    flex: none; white-space: nowrap;
+    margin-left: auto;      /* 提示靠右，其余按钮保持一整行 */
+}
+.rt-bar-sep { width: 1px; height: 16px; background: var(--btn-border); margin: 0 2px; }
+.rt-editor {
+    width: 100%;
+    min-height: 150px;
+    max-height: 50vh;
+    overflow-y: auto;
+    border: 1px solid var(--btn-border);
+    border-radius: 7px;
+    background: var(--btn-bg);
+    color: var(--text);
+    font: inherit; font-size: 13px;
+    line-height: 1.6;
+    padding: 10px 12px;
+    outline: none;
+    user-select: text;
+}
+.rt-editor:focus { border-color: var(--primary); }
+.rt-editor a { color: #0a66c2; text-decoration: underline; }
+.rt-editor img { max-width: 100%; height: auto; display: inline-block; vertical-align: middle; border-radius: 4px; margin: 2px 0; }
+
+/* ── 打印 / PDF：按画布实际尺寸单页（不固定 A4）──
+   预览画布绝对定位、无法跨页流式分页，因此打印时隐藏交互画布，
+   JS 在 buildPrintArea 重建单页副本到 #printArea，并动态注入
+   @page { size: 画布宽 画布高 }（margin:0）→ 导出 PDF 页面恰好等于画布尺寸。
+   单页不跨页，链接保留可点、文字矢量清晰。 */
+#printArea { display: none; }
+@media print {
+    @page { size: auto; margin: 0; }
+    html, body { height: auto; overflow: visible; background: #ffffff; margin: 0; padding: 0; }
+    .topbar, .toolbar, #connectGuide, .modal-overlay, #connectLayer { display: none !important; }
+    #wrap { overflow: visible; }
+    #canvas { display: none !important; }
+    #printArea { display: block !important; }
+    .print-page {
+        position: relative;
+        overflow: hidden;
+        background: #ffffff;
+        margin: 0;
+    }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    /* PDF 里 1.5px 发丝线会被阅读器在像素缝里随机砍淡 → 个别竖线时隐时现、不一起出现。
+       导出时把网格线统一压实到 2px（!important 盖过说明格内联底边框）→ 任意常见缩放（≥50%）
+       每条线都至少覆盖一个像素，全部同生同隐、不再“缺线”。屏幕编辑仍保持 1.5px 细线。 */
+    .cell-bg, .note, .hdr-corner, .hdr-role, .hdr-phase, .subband { border-width: 2px !important; }
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+    <h1>泳道图</h1>
+    <span class="sep">|</span>
+    <span class="title-label">标题</span>
+    <input id="docTitle" class="title-input" value="未命名流程" spellcheck="false" placeholder="图标题（导出时使用）">
+    <span class="spacer"></span>
+    <button id="btnTheme" class="text-btn" type="button" title="切换明暗模式">浅色</button>
+</header>
+
+<div class="toolbar">
+    <button class="btn" id="btnAddRole" type="button">添加角色</button>
+    <button class="btn" id="btnAddPhase" type="button">添加阶段</button>
+    <button class="btn" id="btnAddNote" type="button" title="在最右侧追加一列说明列（可多列，双击格填写说明，可加链接/图片）">添加说明</button>
+    <button class="btn" id="btnTemplate" type="button">载入示例</button>
+    <button class="btn btn-danger" id="btnClear" type="button">清空画布</button>
+    <button class="btn" id="btnUndo" type="button" disabled title="撤销上一步 (Ctrl+Z)">撤销</button>
+    <button class="btn" id="btnRedo" type="button" disabled title="重做 (Ctrl+Shift+Z / Ctrl+Y)">重做</button>
+    <span class="btn-sep"></span>
+    <button class="btn" id="btnExportPng" type="button" title="把整张泳道图导出为高清 PNG 图片">导出PNG</button>
+    <button class="btn" id="btnPrint" type="button" title="按画布实际尺寸单页，目标选「另存为 PDF」保链接可点">打印/PDF</button>
+    <button class="btn" id="btnExcel" type="button" title="导出连线步骤明细表格（需联网加载 Excel 组件）">导出Excel</button>
+    <button class="btn" id="btnExportJson" type="button" title="把整张图存为 JSON 工程文件">导出JSON</button>
+    <button class="btn" id="btnImportJson" type="button" title="从 JSON 工程文件恢复画布">导入JSON</button>
+    <span class="status">双击空格加步骤 · 点节点口连线 · 双击连线改标签 · 步骤/备注双击编辑可加粗、改字色，备注另可插链接/图片</span>
+</div>
+
+<main id="wrap">
+    <div id="canvas" tabindex="0"></div>
+</main>
+
+<div id="connectGuide">已选源口：再点目标节点的某个口完成连线（点空白 / 自身 / Esc 取消，也可直接拖向目标）</div>
+
+<input type="file" id="fileJson" accept=".json,application/json" style="display:none">
+
+<!-- 步骤富文本编辑（支持选中文字插链接） -->
+<div class="modal-overlay" id="rtModal">
+    <div class="modal">
+        <h3 id="rtTitle">编辑步骤</h3>
+        <div class="rtbar">
+            <button class="btn sm" id="rtBold" type="button" title="加粗 (Ctrl+B)">加粗</button>
+            <button class="btn sm" id="rtColor" type="button" title="字体颜色">字色</button>
+            <span class="rt-bar-sep" id="rtBarSep"></span>
+            <button class="btn sm" id="rtLink" type="button">插入链接</button>
+            <button class="btn sm" id="rtUnlink" type="button">移除链接</button>
+            <button class="btn sm" id="rtImg" type="button" title="插入本地图片（自动压缩到 640px 内嵌）">插入图片</button>
+            <input type="file" id="rtImgFile" accept="image/*" style="display:none">
+            <span class="rt-hint" id="rtHint">可换行</span>
+        </div>
+        <div class="rt-editor" id="rtInput" contenteditable="true" spellcheck="false"></div>
+        <div class="modal-actions">
+            <button class="btn" id="rtCancel" type="button">取消</button>
+            <button class="btn" id="rtOk" type="button">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- 字色选择：Notion 饱和色 + 默认（黑） -->
+<div class="modal-overlay" id="rtColorModal">
+    <div class="modal small">
+        <h3>字体颜色</h3>
+        <div class="swatches" id="rtSwatches"></div>
+        <div class="modal-actions">
+            <button class="btn" id="rtColorCancel" type="button">取消</button>
+        </div>
+    </div>
+</div>
+
+<!-- 插入链接输 URL -->
+<div class="modal-overlay" id="urlModal">
+    <div class="modal small">
+        <h3>插入链接</h3>
+        <input id="urlInput" spellcheck="false" placeholder="https://…">
+        <div class="modal-actions">
+            <button class="btn" id="urlCancel" type="button">取消</button>
+            <button class="btn" id="urlOk" type="button">确定</button>
+        </div>
+    </div>
+</div>
+
+<!-- 连线标签 -->
+<div class="modal-overlay" id="edgeModal">
+    <div class="modal small">
+        <h3>连线标签</h3>
+        <input id="edgeInput" spellcheck="false" placeholder="如：通过 / 驳回">
+        <div class="modal-actions">
+            <button class="btn" id="edgeClear" type="button">清除标签</button>
+            <span style="flex:1"></span>
+            <button class="btn" id="edgeCancel" type="button">取消</button>
+            <button class="btn" id="edgeOk" type="button">确定</button>
+        </div>
+    </div>
+</div>
+
+<!-- 表头改色：Notion 色板单选 -->
+<div class="modal-overlay" id="colorModal">
+    <div class="modal small">
+        <h3>工种表头底色</h3>
+        <div class="swatches" id="swatches"></div>
+        <div class="modal-actions">
+            <button class="btn" id="colorCancel" type="button">取消</button>
+        </div>
+    </div>
+</div>
+
+<script>
+/* ══════════════════════ 常量与状态 ══════════════════════ */
+const PHASE_HEAD_W = 42;      // 左侧阶段表头列宽（竖排一字占地）
+const ROLE_HDR_H   = 56;      // 顶部工种表头行高
+const CHAN_G       = 8;       // 通道中线偏移（子行边界/列边界四周留出的走线通道）
+const MIN_SUBROW_H = 60;      // 阶段子行最小高：一行字步骤 + 上下连线通道(2×CHAN_G≈16) + 步骤↔格子边距
+const STEP_MAX_SHARE = 0.75;  // 步骤盒子最大约占所在子格宽/高 75%（四周留 12.5% 空档，边距更宽松）
+const STEP_HPAD    = 20;      // 步骤左右内边距合计（8×2 + 2 边框）
+const STEP_VPAD    = 10;      // 步骤上下内边距合计（3×2 + 2 边框）
+const STEP_LH      = 20;      // 步骤行高（12.5px × 1.6 = 20，与 .step line-height 对齐）
+const STEP_MIN_W   = 5 * 13 + STEP_HPAD;  // 步骤至少 5 字宽（+左右内边距）
+const STEP_MIN_H   = 30;      // 步骤最小高：约一行字（行高20 + 上下内边距/边框 10）
+const SAVE_KEY     = 'swimlane:doc';
+const DEF_DOT   = '#337ea9';  // 未指定背景时工种表头默认饱和色（蓝）
+const DEF_BG    = '#E7F3F8';  // 未指定背景时数据格默认淡底（蓝）
+// Notion 色板：dot=文字/Dot 饱和色（工种表头底，白字）；bg=同色系淡底（数据格块色）
+const NOTION_COLORS = [
+    { name: '蓝', dot: '#337EA9', bg: '#E7F3F8' },
+    { name: '橙', dot: '#D9730D', bg: '#FAEBDD' },
+    { name: '绿', dot: '#448361', bg: '#EDF3EC' },
+    { name: '粉', dot: '#C14C8A', bg: '#FAF1F5' },
+    { name: '黄', dot: '#CB912F', bg: '#FBF3DB' },
+    { name: '紫', dot: '#9065B0', bg: '#F6F3F9' },
+    { name: '红', dot: '#D44C47', bg: '#FDEBEC' },
+    { name: '棕', dot: '#9F6B53', bg: '#F9EBE0' },
+    { name: '灰', dot: '#787774', bg: '#F1F1EF' },
+];
+const roleDot = r => (r && r.bg ? (NOTION_COLORS.find(c => c.bg === r.bg) || { dot: DEF_DOT }).dot : DEF_DOT);
+// 新增工种列的自动轮换顺序（橙蓝绿黄紫棕，不含粉；色板改色不受限）
+const ROLE_CYCLE = ['#FAEBDD', '#E7F3F8', '#EDF3EC', '#FBF3DB', '#F6F3F9', '#F9EBE0'];
+
+const $  = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+
+let doc = null;
+let seq = 1;
+let selectedStepId = null;
+let selectedEdgeId = null;
+let editingStepId = null;
+let editingEdgeId = null;
+let editingNote = null;       // 正在编辑的注意事项格 {phase, role, sub}
+let drag = null;              // 步骤拖动
+let noteDrag = null;          // 说明格拖动 {el, fromKey, moved, startX, startY, toKey}
+let connect = null;           // 连线绘制 {fromId, dir}
+
+/* 行列几何：随表头字数自适应 */
+const ro = [];                // 工种列偏移 {x, w}
+const po = [];                // 阶段行偏移 {y, h}
+function charW(ch) {
+    const c = ch.codePointAt(0);
+    // 全角字符按 2 个半角宽度估算
+    const wide = c > 0x2E7F && c < 0xA0000;
+    return wide ? 30 : 18;
+}
+function measureRoleW(name) {
+    let w = 0;
+    for (const ch of String(name)) w += charW(ch);
+    return Math.round(Math.max(150, w + 48));
+}
+function measurePhaseH(name) {
+    const n = Array.from(String(name) || '').length;   // 竖排：每字一行
+    return Math.max(132, n * 20 + 44);
+}
+// 某个子段带（或简单阶段的整段）的注意事项格所需高度：用隐藏探针按「备注列内容宽」做真实换行测量。
+// 图片在探针里换成同高占位块（按 iw/ih 等比缩放），避免图片异步加载导致首次测高为 0。
+// 返回 内容高 + 上下内边距 16 + 边框 2 → 格内 flex 居中后，无论几行文字，文本距格子边框恒为 8px。
+let noteProbe = null;
+function noteProbeEl() {
+    if (!noteProbe) {
+        noteProbe = document.createElement('div');
+        noteProbe.className = 'note';                    // 复用字体/行高/断行/图片边距规则
+        noteProbe.style.cssText = 'position:absolute;left:-200000px;top:0;visibility:hidden;width:1px;height:auto;display:block;padding:0;border:none;';
+        document.body.appendChild(noteProbe);
+    }
+    return noteProbe;
+}
+function noteNeedFor(p, subId) {
+    const noted = doc.roles.filter(r => r.note);
+    if (!noted.length) return 0;
+    const probe = noteProbeEl();
+    let max = 0;
+    for (const nr of noted) {
+        const segs = noteSegFor(p.id, nr.id, subId || '');
+        if (!segs.some(s => s.img || String(s.t || '').trim())) continue;   // 空说明格不占高
+        const usable = Math.max(1, measureRoleW(nr.name) * 2 - 26);   // 说明列宽 − 内边距 12×2 − 边框 2
+        probe.style.width = usable + 'px';
+        probe.innerHTML = segs.map(sg => {
+            if (sg.img) {
+                const iw = sg.iw || 0, ih = sg.ih || 0;
+                let hh = 40;                                   // 未知尺寸占位
+                if (iw && ih) hh = Math.round(ih * Math.min(iw, usable) / iw);
+                return `<div style="height:${hh}px;margin:2px 0;"></div>`;
+            }
+            return segToHtml(sg);                              // 文本/链接（\n→<br>、加粗/字色不改变行高）
+        }).join('');
+        max = Math.max(max, probe.scrollHeight);
+    }
+    return max ? max + 16 + 2 : 0;
+}
+// 阶段内纵向划分成若干“带(band)”：简单阶段 = 一条全高带；带子阶段 = 每个子阶段一条带。
+// 每条带内可拆多子行（每子行一步）。po[pi] = { y, h, subs:[{id,name}]|[], bands:[{y,h,rows:[]}] }
+const phRows = [];   // 每阶段总子行数（buildAxes 填充，供连线按“全局子行序号”判断相邻）
+function bandOf(s) {
+    const P = po[phaseIndex(s.phase)];
+    if (!P.bands.length) return null;
+    let bi = 0;
+    if (P.subs.length) {
+        const k = P.subs.findIndex(q => q.id === (s.sub || ''));
+        if (k >= 0) bi = k;
+    }
+    return P.bands[Math.min(bi, P.bands.length - 1)];
+}
+function subYAt(band, r) { let yy = band.y; for (let k = 0; k < r; k++) yy += band.rows[k]; return yy; }
+function subTopG(s) {
+    const b = bandOf(s);
+    const r = Math.min(s.row || 0, b.rows.length - 1);
+    return subYAt(b, r) + CHAN_G;
+}
+function subBotG(s) {
+    const b = bandOf(s);
+    const r = Math.min(s.row || 0, b.rows.length - 1);
+    return subYAt(b, r) + b.rows[r] - CHAN_G;
+}
+function bandTopG(s) { return bandOf(s).y + CHAN_G; }
+function bandBotG(s) { return bandOf(s).y + bandOf(s).h - CHAN_G; }
+function buildAxes() {
+    ro.length = 0; po.length = 0; phRows.length = 0;
+    const headW = PHASE_HEAD_W;   // 子阶段不再加宽表头（子阶段名不显示，父名单独竖排跨整段）
+    let x = headW, y = ROLE_HDR_H;
+    doc.roles.forEach(r => {
+        const w = measureRoleW(r.name) * (r.note ? 2 : 1);   // 注意事项列 = 别的列 2 倍宽
+        ro.push({ x, w }); x += w;
+    });
+    doc.phases.forEach((p, pi) => {
+        const subArr = (p.subs && p.subs.length) ? p.subs : [null];
+        const bands = [];
+        let total = 0;
+        subArr.forEach((sub, si) => {
+            const b = bandFor(p, sub ? sub.id : null);
+            b.y = y + total;
+            b.sub = sub ? sub.id : '';   // 带→子阶段 id（简单阶段为空串），备注格按带拆分用
+            b.subI = si;
+            // 该带自己的注意事项格文本所需高度：差量补进最后子行，band/子行几何保持自洽
+            const need = noteNeedFor(p, b.sub);
+            if (need > b.h) {
+                const d = need - b.h;
+                b.rows[b.rows.length - 1] += d;
+                b.h += d;
+            }
+            bands.push(b);
+            total += b.h;
+        });
+        // 父阶段名（竖排跨整段）也需要空间：不足则把差量补进最后一个带
+        const totalH = Math.max(measurePhaseH(p.name), total);
+        if (totalH > total) {
+            const b = bands[bands.length - 1];
+            const d = totalH - total;
+            b.rows[b.rows.length - 1] += d;
+            b.h += d;
+        }
+        po.push({ y, h: totalH, subs: (subArr[0] ? subArr : []), bands });
+        phRows.push(bands.reduce((a, b) => a + b.rows.length, 0));
+        y += totalH;
+    });
+    return { bodyW: x, bodyH: y, headW };
+}
+// 单条带：统计该子段（或简单阶段的整段）内子行——同一 阶段×工种 格内每步一行
+function bandFor(p, subId) {
+    const steps = doc.steps.filter(s =>
+        s.phase === p.id && (subId === null ? !(s.sub || '') : (s.sub || '') === subId));
+    let n = 1;
+    steps.forEach(s => n = Math.max(n, (s.row || 0) + 1));
+    const rows = [];
+    for (let r = 0; r < n; r++) {
+        let h = MIN_SUBROW_H;
+        steps.forEach(s => {
+            if ((s.row || 0) !== r) return;
+            const b = estStepBox(s.text, measureRoleW(roleById(s.role).name));
+            h = Math.max(h, Math.ceil(b.h / STEP_MAX_SHARE) + 6);
+        });
+        rows.push(h);
+    }
+    return { y: 0, h: rows.reduce((a, b) => a + b, 0), rows };
+}
+// 数据变更后补齐行号：同 阶段×工种×子段 格内步骤按数组顺序排到 0..n-1，消掉删除留下的空洞
+function compactRows() {
+    const seq = new Map();
+    doc.steps.forEach(s => {
+        const k = s.phase + '|' + s.role + '|' + (s.sub || '');
+        s.row = seq.get(k) || 0;
+        seq.set(k, s.row + 1);
+    });
+}
+function nextRowIn(phaseId, roleId, subId, excludeId) {
+    let m = -1;
+    doc.steps.forEach(s => {
+        if (s.id !== excludeId && s.phase === phaseId && s.role === roleId && (s.sub || '') === (subId || '')) m = Math.max(m, s.row || 0);
+    });
+    return m + 1;
+}
+
+const uidPrefix = { step: 's', role: 'r', phase: 'p', edge: 'e' };
+function uid(kind) {
+    const pfx = uidPrefix[kind];
+    // 占用集合覆盖全部 id：工种/阶段/步骤/连线，以及各阶段里的子阶段（此前漏了 subs，
+    // 导致导入含子阶段的图后再「+子段」会与已有子阶段撞 id，重名带互相串位）
+    const used = new Set();
+    doc.roles.forEach(v => used.add(v.id));
+    doc.phases.forEach(v => { used.add(v.id); (v.subs || []).forEach(q => used.add(q.id)); });
+    doc.steps.forEach(v => used.add(v.id));
+    doc.edges.forEach(v => used.add(v.id));
+    while (used.has(pfx + seq)) seq++;
+    return pfx + seq++;
+}
+function escapeHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+const roleById   = id => doc.roles.find(r => r.id === id);
+const phaseById  = id => doc.phases.find(p => p.id === id);
+const stepById   = id => doc.steps.find(s => s.id === id);
+const edgeById   = id => doc.edges.find(e => e.id === id);
+const roleIndex  = id => doc.roles.findIndex(r => r.id === id);
+const phaseIndex = id => doc.phases.findIndex(p => p.id === id);
+function stepPlainText(s) { return (s.text || []).filter(x => !x.img).map(x => x.t).join(''); }
+
+/* ══════════════════════ 初始模板 ══════════════════════ */
+function buildTemplate() {
+    return {
+        schema: 2,
+        title: '泳道图示例',
+        roles: [ { id: 'r1', name: '角色1', bg: '#FAEBDD' },
+                 { id: 'r2', name: '角色2', bg: '#E7F3F8' },
+                 { id: 'r3', name: '角色3', bg: '#EDF3EC' },
+                 { id: 'r4', name: '说明', bg: '#FDEBEC', note: true } ],
+        phases: [ { id: 'p1', name: '阶段1' },
+                  { id: 'p2', name: '阶段2' },
+                  { id: 'p3', name: '阶段3' }, ],
+        steps: [
+            { id: 's1', phase: 'p1', role: 'r1', text: [{ t: '步骤1', l: null }] },
+            { id: 's2', phase: 'p2', role: 'r2', text: [{ t: '步骤2', l: null }] },
+            { id: 's3', phase: 'p3', role: 'r3', text: [{ t: '步骤3', l: null }] },
+        ],
+        edges: [
+            { id: 'e1', from: 's1', to: 's2', label: '' },
+            { id: 'e2', from: 's2', to: 's3', label: '' },
+        ],
+        notes: [ { phase: 'p1', role: 'r4', sub: '', seg: [ { t: '双击此处填写说明，可加链接与图片', l: null } ] } ],
+    };
+}
+
+/* ══════════════════════ 几何 ══════════════════════ */
+// 步骤盒子自适应：宽 ≤ 80% 列宽（至少 5 字宽），高按此宽换行后的行数（至少一行高）——不限制高度不截断
+function lineCharW(ch) {
+    return /[⺀-鿿　-〿぀-ヿ豈-﫿︰-﹏＀-￯]/.test(ch) ? 12.5 : 7.5;
+}
+function estStepBox(segs, cellW) {
+    // 图片段不计入文字宽度；步骤正常无图，仅导入容错
+    let text = (segs || []).filter(sg => !sg.img).map(sg => sg.t).join('\n');
+    if (!text.trim()) text = '空步骤，双击编辑';   // 空步骤按占位符估算，避免文字被裁
+    const maxW = Math.max(Math.floor(cellW * STEP_MAX_SHARE), STEP_MIN_W);
+    let natW = 0;
+    for (const ln of text.split('\n')) { let w = 0; for (const ch of ln) w += lineCharW(ch); natW = Math.max(natW, w); }
+    const w = Math.max(STEP_MIN_W, Math.min(natW + STEP_HPAD, maxW));
+    const usable = Math.max(1, w - STEP_HPAD);
+    let lines = 0;
+    for (const p of text.split('\n')) {
+        if (!p) { lines++; continue; }
+        let lw = 0;
+        for (const ch of p) {
+            const cw = lineCharW(ch);   // 用准确字宽判断换行 → 估计行数=实际渲染行数，行数再多留白也固定
+            if (lw > 0 && lw + cw > usable) { lines++; lw = 0; }
+            lw += cw;
+        }
+        lines++;
+    }
+    const h = Math.max(STEP_MIN_H, Math.ceil(Math.max(1, lines) * STEP_LH) + STEP_VPAD);
+    return { w, h };
+}
+function stepRect(s) {
+    const pi = phaseIndex(s.phase), ri = roleIndex(s.role);
+    const b = bandOf(s);
+    const r = Math.min(s.row || 0, b.rows.length - 1);
+    const cw = ro[ri].w, ch = b.rows[r];
+    const est = estStepBox(s.text, cw);
+    const x = ro[ri].x + Math.round((cw - est.w) / 2);
+    const y = subYAt(b, r) + Math.round((ch - est.h) / 2);
+    return { left: x, top: y, right: x + est.w, bottom: y + est.h, cx: x + est.w / 2, cy: y + est.h / 2, w: est.w, h: est.h };
+}
+function cellOfPoint(x, y) {
+    let ri = -1;
+    for (let i = 0; i < ro.length; i++) { if (x <= ro[i].x + ro[i].w) { ri = i; break; } }
+    let pi = -1;
+    for (let i = 0; i < po.length; i++) { if (y <= po[i].y + po[i].h) { pi = i; break; } }
+    if (ri < 0 || pi < 0) return null;
+    const P = po[pi];
+    let sub;
+    if (P.subs.length) {
+        for (let k = 0; k < P.bands.length; k++) {
+            if (y < P.bands[k].y + P.bands[k].h) { sub = P.subs[k].id; break; }
+        }
+    }
+    return { role: doc.roles[ri].id, phase: doc.phases[pi].id, sub };
+}
+function canvasSize() {
+    const { bodyW, bodyH, headW } = buildAxes();
+    return { w: bodyW + 36, h: bodyH + 36, headW };
+}
+
+function colLeftGutter(ri) { return ro[ri].x + CHAN_G; }
+function colRightGutter(ri){ return ro[ri].x + ro[ri].w - CHAN_G; }
+
+// 连线优先“简单路径”：相邻直连，其余通常 = 下横下/上横上 这种 ≤3 段的折线；
+// 简单折线撞上无关步骤时，回退到通道走廊（子行上/下通道 + 列左/右通道，恒不遮挡）。
+function ccw2(a, b, c) { return (c[1] - a[1]) * (b[0] - a[0]) - (b[1] - a[1]) * (c[0] - a[0]); }
+function segRectHit(a, b, r) {
+    const on = (p, q, v) => p[0] <= Math.max(q[0], v[0]) && p[0] >= Math.min(q[0], v[0]) &&
+                            p[1] <= Math.max(q[1], v[1]) && p[1] >= Math.min(q[1], v[1]);
+    const s = (c, d) => {
+        const d1 = ccw2(c, d, a), d2 = ccw2(c, d, b), d3 = ccw2(a, b, c), d4 = ccw2(a, b, d);
+        if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) return true;
+        if (d1 === 0 && on(a, c, d)) return true; if (d2 === 0 && on(b, c, d)) return true;
+        if (d3 === 0 && on(c, a, b)) return true; if (d4 === 0 && on(d, a, b)) return true;
+        return false;
+    };
+    return s([r.left, r.top], [r.right, r.top]) || s([r.right, r.top], [r.right, r.bottom]) ||
+           s([r.right, r.bottom], [r.left, r.bottom]) || s([r.left, r.bottom], [r.left, r.top]);
+}
+function pathClear(pts, sA, sB) {
+    for (let i = 1; i < pts.length; i++) {
+        for (const k of doc.steps) {
+            if (k.id === sA.id || k.id === sB.id) continue;
+            if (segRectHit(pts[i - 1], pts[i], stepRect(k))) return false;
+        }
+    }
+    return true;
+}
+// 端口连线：按所选口出/入，「少弯优先」——0弯直连 / 1弯直角钩 / 2弯 N形（下横上·上横下·横竖横）。
+// 同弯数取最短，全部挡路才退通道走廊。记：弯越少越顺眼；首末段必须垂直贴合所选口（方向校验）。
+// 规律 = 出/入口同为竖轴 → 直线或下横上；同为横轴 → 直线或横竖横；一竖一横 → 直角钩。
+function portEdge(sA, sB, f, t, fd, td, riF, riT) {
+    const p0 = portPoint(f, fd), p1 = portPoint(t, td);
+    const yM = [...new Set([
+        subTopG(sA), subBotG(sA), bandTopG(sA), bandBotG(sA),
+        subTopG(sB), subBotG(sB), bandTopG(sB), bandBotG(sB),
+        (p0[1] + p1[1]) / 2, p0[1], p1[1]
+    ].map(Math.round))];
+    const xM = [...new Set([
+        colLeftGutter(riF), colRightGutter(riF), colLeftGutter(riT), colRightGutter(riT),
+        (p0[0] + p1[0]) / 2, p0[0], p1[0]
+    ].map(Math.round))];
+
+    const all = [];
+    const add = pts => {              // 去重复/共线点 → 正交 → 首/末段出/入方向贴合所选口 → 收进候选
+        const out = [];
+        for (const q of pts) {
+            const l = out[out.length - 1];
+            if (!l || l[0] !== q[0] || l[1] !== q[1]) out.push([q[0], q[1]]);
+        }
+        for (let i = 1; i < out.length - 1; ) {
+            const u = out[i - 1], v = out[i], w = out[i + 1];
+            if ((u[0] === v[0] && v[0] === w[0]) || (u[1] === v[1] && v[1] === w[1])) out.splice(i, 1);
+            else i++;
+        }
+        if (out.length < 2) return;
+        for (let i = 1; i < out.length; i++)
+            if (out[i][0] !== out[i - 1][0] && out[i][1] !== out[i - 1][1]) return;
+        const dx0 = out[1][0] - out[0][0], dy0 = out[1][1] - out[0][1];
+        const N = out.length, dxN = out[N - 1][0] - out[N - 2][0], dyN = out[N - 1][1] - out[N - 2][1];
+        if (fd === 'b' && !(dy0 > 0 && dx0 === 0)) return;
+        if (fd === 't' && !(dy0 < 0 && dx0 === 0)) return;
+        if (fd === 'l' && !(dx0 < 0 && dy0 === 0)) return;
+        if (fd === 'r' && !(dx0 > 0 && dy0 === 0)) return;
+        if (td === 'b' && !(dyN < 0 && dxN === 0)) return;
+        if (td === 't' && !(dyN > 0 && dxN === 0)) return;
+        if (td === 'l' && !(dxN > 0 && dyN === 0)) return;
+        if (td === 'r' && !(dxN < 0 && dyN === 0)) return;
+        let len = 0;
+        for (let i = 1; i < out.length; i++) len += Math.abs(out[i][0] - out[i - 1][0]) + Math.abs(out[i][1] - out[i - 1][1]);
+        all.push({ pts: out, segs: out.length - 1, len });
+    };
+
+    add([p0, p1]);                                        // 0 弯：对齐直连
+    add([p0, [p0[0], p1[1]], p1]);                        // 1 弯：竖出口→横入口 直角钩
+    add([p0, [p1[0], p0[1]], p1]);                        // 1 弯：横出口→竖入口 直角钩
+    for (const y of yM) add([p0, [p0[0], y], [p1[0], y], p1]);   // 2 弯：竖竖 下横上/上横下
+    for (const x of xM) add([p0, [x, p0[1]], [x, p1[1]], p1]);   // 2 弯：横横 横竖横
+
+    let best = null, bestScore = Infinity;
+    for (const c of all) {
+        if (!pathClear(c.pts, sA, sB)) continue;
+        const score = c.segs * 1e6 + c.len;   // 弯数(段数-1)优先，同弯取最短
+        if (score < bestScore) { bestScore = score; best = c.pts; }
+    }
+    return best || corridorPoints(sA, sB);
+}
+function edgePoints(sA, sB, e) {
+    const f = stepRect(sA), t = stepRect(sB);
+    const riF = roleIndex(sA.role),   riT = roleIndex(sB.role);
+    // 用户拖拽过端口方向：优先按所选端口出/入
+    if (e && e.fromDir && e.toDir) {
+        const pr = portEdge(sA, sB, f, t, e.fromDir, e.toDir, riF, riT);
+        if (pr) return pr;
+    }
+    const diff = firmIndex(sB) - firmIndex(sA);
+    const sameBand = bandOf(sA) === bandOf(sB);
+    let simple;
+
+    if (diff === 0) {
+        // 同一子行：相邻列直连；远列走子行顶通道
+        if (Math.abs(riT - riF) <= 1) {
+            const x0 = riT > riF ? f.right : f.left;
+            const x1 = riT > riF ? t.left : t.right;
+            simple = [[x0, f.cy], [x1, t.cy]];
+        } else {
+            const yg = subTopG(sA);
+            simple = [[f.cx, f.top], [f.cx, yg], [t.cx, yg], [t.cx, t.top]];
+        }
+    } else if (riF === riT) {
+        // 同一列：相邻子行直连；远子行“下横下/上横上”进目标顶边
+        if (diff === 1)      simple = [[f.cx, f.bottom], [t.cx, t.top]];
+        else if (diff === -1) simple = [[f.cx, f.top], [t.cx, t.bottom]];
+        else {
+            const yF = diff > 0
+                ? (sameBand ? subBotG(sA) : bandBotG(sA))
+                : (sameBand ? subTopG(sA) : bandTopG(sA));
+            simple = [[f.cx, diff > 0 ? f.bottom : f.top], [f.cx, yF], [t.cx, yF], [t.cx, t.top]];
+        }
+    } else if (diff > 0) {
+        // 下流：下横下
+        const yF = sameBand ? subBotG(sA) : bandBotG(sA);
+        simple = [[f.cx, f.bottom], [f.cx, yF], [t.cx, yF], [t.cx, t.top]];
+    } else {
+        // 上流：上横上
+        const yF = sameBand ? subTopG(sA) : bandTopG(sA);
+        simple = [[f.cx, f.top], [f.cx, yF], [t.cx, yF], [t.cx, t.top]];
+    }
+
+    if (pathClear(simple, sA, sB)) return simple;
+    return corridorPoints(sA, sB);
+}
+// 兜底通道走廊路由（保证不遮挡任何步骤）：同子行相邻直连；远距走子行上/下通道 + 列左/右通道
+function corridorPoints(sA, sB) {
+    const f = stepRect(sA), t = stepRect(sB);
+    const riF = roleIndex(sA.role),   riT = roleIndex(sB.role);
+    const diff = firmIndex(sB) - firmIndex(sA);
+
+    if (diff === 0) {
+        if (Math.abs(riT - riF) <= 1) {
+            const x0 = riT > riF ? f.right : f.left;
+            const x1 = riT > riF ? t.left : t.right;
+            return [[x0, f.cy], [x1, t.cy]];
+        }
+        const yg = subTopG(sA);
+        return [[f.cx, f.top], [f.cx, yg], [t.cx, yg], [t.cx, t.top]];
+    }
+    if (riF === riT) {
+        if (diff === 1)  return [[f.cx, f.bottom], [t.cx, t.top]];
+        if (diff === -1) return [[f.cx, f.top],    [t.cx, t.bottom]];
+        const yF = diff > 0 ? subBotG(sA) : subTopG(sA);
+        const yT = diff > 0 ? subTopG(sB) : subBotG(sB);
+        const xv = colRightGutter(riF);
+        return [[f.cx, diff > 0 ? f.bottom : f.top], [f.cx, yF], [xv, yF], [xv, yT], [t.cx, yT], [t.cx, diff > 0 ? t.top : t.bottom]];
+    }
+    if (diff > 0) {
+        const yF = subBotG(sA), yT = subTopG(sB);
+        const xv = riT >= riF ? colRightGutter(riF) : colLeftGutter(riF);
+        return [[f.cx, f.bottom], [f.cx, yF], [xv, yF], [xv, yT], [t.cx, yT], [t.cx, t.top]];
+    }
+    const yF = subTopG(sA), yT = subBotG(sB);
+    const xv = riT <= riF ? colLeftGutter(riF) : colRightGutter(riF);
+    return [[f.cx, f.top], [f.cx, yF], [xv, yF], [xv, yT], [t.cx, yT], [t.cx, t.bottom]];
+}
+function firmIndex(s) {
+    const pi = phaseIndex(s.phase);
+    let c = 0;
+    for (let k = 0; k < pi; k++) c += phRows[k];
+    const P = po[pi];
+    if (P.subs.length) {
+        let bi = 0;
+        const k2 = P.subs.findIndex(q => q.id === (s.sub || ''));
+        if (k2 >= 0) bi = k2;
+        for (let k = 0; k < bi; k++) c += P.bands[k].rows.length;
+    }
+    return c + (s.row || 0);
+}
+function pathFrom(pts) { return 'M' + pts.map(p => p[0] + ',' + p[1]).join(' L'); }
+function edgeLabelPos(pts) {
+    let bx = pts[0][0], by = pts[0][1], blen = -1, horiz = true;
+    for (let i = 1; i < pts.length; i++) {
+        const dx = Math.abs(pts[i][0] - pts[i - 1][0]);
+        const dy = Math.abs(pts[i][1] - pts[i - 1][1]);
+        if (dx > blen) { blen = dx; horiz = true; bx = (pts[i - 1][0] + pts[i][0]) / 2; by = pts[i - 1][1]; }
+        if (dy > blen) { blen = dy; horiz = false; bx = pts[i - 1][0]; by = (pts[i - 1][1] + pts[i][1]) / 2; }
+    }
+    return { x: bx + (horiz ? 0 : 9), y: by, anchor: horiz ? 'middle' : 'start' };
+}
+
+/* ══════════════════════ 通用富文本：加粗 + 字色 + 内联链接 + 图片 ══════════════════════ */
+// 段落 = segments：文本段 {t, l?, b?, c?}（l=链接，b=加粗，c=hex 字色）；图片段 {img, iw, ih}
+// 步骤 / 注意事项共用此模型；导出 PNG/PDF 由 DOM 克隆自带样式，JSON 全保留
+function segToHtml(sg) {
+    if (sg && sg.img) {
+        return `<img src="${escapeHtml(sg.img)}" ${sg.iw ? `data-iw="${sg.iw}" data-ih="${sg.ih || 0}" ` : ''}style="max-width:100%;height:auto">`;
+    }
+    let inner = escapeHtml(sg.t || '').split('\n').join('<br>');
+    if (sg.b) inner = `<b>${inner}</b>`;
+    if (sg.c && sg.l) {
+        inner = `<a href="${escapeHtml(sg.l)}" target="_blank" rel="noopener" style="color:${escapeHtml(sg.c)}">${inner}</a>`;
+    } else if (sg.l) {
+        inner = `<a href="${escapeHtml(sg.l)}" target="_blank" rel="noopener">${inner}</a>`;
+    } else if (sg.c) {
+        inner = `<span style="color:${escapeHtml(sg.c)}">${inner}</span>`;
+    }
+    return inner;
+}
+function renderText(segs) {
+    if (!segs || !segs.length) return '';
+    return segs.map(segToHtml).join('');
+}
+function segsToHtml(segs) {
+    return (segs || []).map(segToHtml).join('');
+}
+const cssRgbToHex = str => {
+    const m = String(str).match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:[^)]*)\)$/i);
+    if (m) return '#' + m.slice(1).map(x => (+x).toString(16).padStart(2, '0')).join('');
+    const h = String(str).replace(/^#/, '');
+    if (/^[0-9a-f]{3}$/i.test(h)) return '#' + h.split('').map(x => x + x).join('').toLowerCase();
+    if (/^[0-9a-f]{6}$/i.test(h)) return '#' + h.toLowerCase();
+    return null;
+};
+function parseRichEditable(node) {
+    // 把 contenteditable 的 DOM 解析回 segments（<b>/<strong> → b；<span style="color:#x"> → c；<a> → {t,l}；<img> → {img,iw,ih}）
+    const segs = [];
+    const add = (t, l, b, c) => {
+        if (t === '') return;
+        const last = segs[segs.length - 1];
+        if (last && last.t !== undefined && last.l === l && (last.b || false) === (b || false) && (last.c || null) === (c || null) && !t.includes('\n')) {
+            last.t += t; return;
+        }
+        const o = { t, l };
+        if (b) o.b = true;
+        if (c) o.c = c;
+        segs.push(o);
+    };
+    // 节点 → 该子树继承的样式 {b, c, l}
+    const styleOf = (el, prev) => {
+        const st = { b: prev.b, c: prev.c, l: prev.l };
+        const tag = el.nodeName;
+        if (tag === 'A') st.l = el.getAttribute('href') || null;
+        if (tag === 'B' || tag === 'STRONG') st.b = true;
+        if (tag === 'FONT') { const col = el.getAttribute('color'); if (col) st.c = cssRgbToHex(col) || col; }
+        const style = el.getAttribute && el.getAttribute('style');
+        if (style) {
+            const mCol = style.match(/color:\s*(#[0-9a-fA-F]{3,6}|rgb\([^)]+\))/);
+            if (mCol) st.c = cssRgbToHex(mCol[1]) || mCol[1];
+            if (/font-weight\s*:\s*(?:bold|bolder|[5-9]00)/.test(style)) st.b = true;
+        }
+        return st;
+    };
+    // 「上一段是否刚停在换行处」：连续块/紧邻 repeat 时不重复补 \n（\n 段为合并粒度，独立 push）
+    const atLineStart = () => {
+        const last = segs[segs.length - 1];
+        return !!(last && last.t !== undefined && last.t && /^\n+$/.test(last.t));
+    };
+    const walk = (n, prevSt) => {
+        for (const ch of n.childNodes) {
+            if (ch.nodeType === 3) {
+                add(ch.nodeValue, prevSt.l, prevSt.b, prevSt.c);
+            } else if (ch.nodeName === 'IMG') {
+                const iw = parseInt(ch.dataset.iw, 10) || 0;
+                const ih = parseInt(ch.dataset.ih, 10) || 0;
+                const src = ch.getAttribute('src');
+                if (src) segs.push({ img: src, iw, ih });
+                add('\n', prevSt.l, prevSt.b, prevSt.c);   // 图片独占一行
+            } else if (ch.nodeName === 'BR') {
+                add('\n', prevSt.l, prevSt.b, prevSt.c);
+            } else if (ch.nodeName === 'DIV' || ch.nodeName === 'P' || ch.nodeName === 'LI') {
+                // 真实浏览器换行结构：第一段裸文本、后续各段包 <div>（如 "第一行<div>第二行</div>"）。
+                // 块是独立行 → 进入前若行首已有内容先补换行，否则下一段的文本会把上一行 merge 到同一 seg、换行丢失。
+                if (segs.length && !atLineStart()) add('\n', prevSt.l, prevSt.b, prevSt.c);
+                walk(ch, prevSt);
+                add('\n', prevSt.l, prevSt.b, prevSt.c);
+            } else {
+                walk(ch, styleOf(ch, prevSt));
+            }
+        }
+    };
+    const rootSt = { b: false, c: null, l: null };
+    if (node && (node.nodeName === 'DIV' || node.nodeName === 'P')) walk(node, rootSt);
+    else if (node) walk(node, rootSt);
+    // 剥掉首尾冗余换行；纯换行段保 \n（若清成 '' 会让两行之间失去 <br>），混合文本段仅压缩连续 \n 并去尾
+    while (segs.length && segs[0].t === '\n') segs.shift();
+    while (segs.length && segs[segs.length - 1].t === '\n') segs.pop();
+    segs.forEach(s => {
+        if (s.t && s.t.includes('\n')) {
+            s.t = /^\n+$/.test(s.t) ? '\n' : s.t.replace(/\n+/g, '\n').replace(/\n$/, '');
+        }
+    });
+    return segs.filter(s => s.t !== '');
+}
+
+/* ══════════════════════ 渲染 ══════════════════════ */
+// 显式箭头三角形：不依赖 SVG <marker>（Chromium 打印/PDF 对 cloned defs 里的 marker 引用有已知 bug 会丢失箭头），
+// 按连线末段方向手算坐标生成 path，屏幕与打印同源必然可绘。
+function arrowTri(pts) {
+    const ex = pts[pts.length - 1][0], ey = pts[pts.length - 1][1];
+    const sx = pts[pts.length - 2][0], sy = pts[pts.length - 2][1];
+    let dx = ex - sx, dy = ey - sy;
+    const len = Math.hypot(dx, dy) || 1;
+    dx /= len; dy /= len;
+    const L = 8, HW = 3.5;             // 箭长 8、半翼展 3.5：尖点 + 同一后距底边两点 = 真三角形
+    const bx = ex - dx * L, by = ey - dy * L;
+    const wx = -dy, wy = dx;           // 垂直向量
+    const w1x = bx + wx * HW, w1y = by + wy * HW;
+    const w2x = bx - wx * HW, w2y = by - wy * HW;
+    return { path: `M${ex},${ey} L${w1x},${w1y} L${w2x},${w2y} Z`, bx, by };
+}
+function renderEdges() {
+    const svg = $('#edges');
+    const { w, h } = canvasSize();
+    svg.setAttribute('width', w);
+    svg.setAttribute('height', h);
+    svg.innerHTML =
+        doc.edges.map(e => {
+            const a = stepById(e.from), b = stepById(e.to);
+            if (!a || !b) return '';
+            const pts = edgePoints(a, b, e);
+            const d = pathFrom(pts);
+            const sel = e.id === selectedEdgeId ? ' selected' : '';
+            const ar = arrowTri(pts);
+            // 线整条画满路由路径（顶点自洽）；线帽 butt 平头不外凸，箭头三角形盖住末端，无需截断线段。
+            // 注意不要用 pts 截短到箭头底边——末段长度 < 箭长时会越过前一点反向折回，导致连线段错开。
+            const lp = edgeLabelPos(pts);
+            const lbl = e.label ? `<g class="edge-label" data-edge="${e.id}" transform="translate(${lp.x},${lp.y})"><text text-anchor="${lp.anchor}" dominant-baseline="middle">${escapeHtml(e.label)}</text></g>` : '';
+            return `<g class="edge${sel}" data-id="${e.id}">
+                <path class="edge-main" d="${d}"/>
+                <path class="edge-arrow" d="${ar.path}"/>
+                <path class="edge-hit" d="${d}"/>
+                ${lbl}
+            </g>`;
+        }).join('');
+}
+
+// 连线选中态：仅切换 .selected 类，不触碰 SVG 结构（保持双击时 DOM 节点稳定）
+function updateEdgeSelection() {
+    $$('#edges .edge').forEach(el => el.classList.toggle('selected', el.dataset.id === selectedEdgeId));
+}
+
+function renderAll() {
+    compactRows();
+    const canvas = $('#canvas');
+    const { w, h, headW } = canvasSize();
+    canvas.innerHTML = '';
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+
+    const bodyW = ro[ro.length - 1].x + ro[ro.length - 1].w;
+    const bodyH = po[po.length - 1].y + po[po.length - 1].h;
+    const dataX = headW;   // 数据区（第二行第二列起）左边界
+
+    // 整表外框（加粗加深）
+    canvas.insertAdjacentHTML('beforeend', `<div class="table-frame" style="width:${bodyW}px;height:${bodyH}px"></div>`);
+
+    // 左上角（空占位）
+    canvas.insertAdjacentHTML('beforeend', `<div class="hdr-corner" style="height:${ROLE_HDR_H}px;width:${headW}px"></div>`);
+
+    // 工种表头（顶部一行，居中）：饱和色底 + 白字
+    doc.roles.forEach((r, ri) => {
+        canvas.insertAdjacentHTML('beforeend',
+            `<div class="hdr-role" data-role="${r.id}" style="left:${ro[ri].x}px;width:${ro[ri].w}px;background:${roleDot(r)}">
+                <span class="role-name" contenteditable="plaintext-only" spellcheck="false">${escapeHtml(r.name)}</span>
+                <span class="role-tools">
+                    <button class="hdr-tool" data-act="color" title="改表头底色">改色</button>
+                    <button class="hdr-tool" data-act="del" title="删除该工种（连同步骤与连线）">删除</button>
+                </span>
+            </div>`);
+    });
+
+    // 数据格淡底块色层：第二行第二列起，每格按所在工种列淡底轮换；注意事项列按子阶段带拆格渲染段落（含可点链接）
+    doc.phases.forEach((p, pi) => {
+        doc.roles.forEach((r, ri) => {
+            if (r.note) {
+                const last = po[pi].bands.length - 1;
+                po[pi].bands.forEach((b, bi) => {
+                    // 只有最后一条带保留下边框（阶段底边线）；中间带的边界由 .subband 虚线承担，避免实线与虚线叠成两线
+                    const bb = bi === last ? 'border-bottom:1.5px solid var(--grid-solid);' : '';
+                    canvas.insertAdjacentHTML('beforeend',
+                        `<div class="note" data-note="${p.id}|${r.id}|${b.sub}" title="双击编辑（可插入链接/图片）" style="left:${ro[ri].x}px;top:${b.y}px;width:${ro[ri].w}px;height:${b.h}px;background:${r.bg || DEF_BG};${bb}"><span class="center-block">${segsToHtml(noteSegFor(p.id, r.id, b.sub))}</span></div>`);
+                });
+                return;
+            }
+            canvas.insertAdjacentHTML('beforeend',
+                `<div class="cell-bg" data-cell="${p.id}|${r.id}" style="left:${ro[ri].x}px;top:${po[pi].y}px;width:${ro[ri].w}px;height:${po[pi].h}px;background:${r.bg || DEF_BG}"></div>`);
+        });
+    });
+
+    // 子阶段带边界线（中灰虚线，1px 与全部横线统一）：每个子阶段带之间的分隔
+    doc.phases.forEach((p, pi) => {
+        po[pi].bands.forEach((b, bi) => {
+            if (po[pi].subs.length && bi > 0) {
+                canvas.insertAdjacentHTML('beforeend',
+                    `<div class="subband" style="left:${dataX}px;top:${b.y}px;width:${bodyW - dataX}px"></div>`);
+            }
+        });
+    });
+
+    // 阶段表头（左侧，竖排；高度=整段含子行）：父阶段名跨整段合并居中；子阶段靠带内虚线区分，不在表头显名
+    doc.phases.forEach((p, pi) => {
+        const P = po[pi];
+        const tools = `<button class="hdr-tool" data-act="sub" title="添加一个子阶段">+子段</button>
+                       ${(p.subs && p.subs.length) ? `<button class="hdr-tool" data-act="delsub" title="删除最后一个子阶段（连同其内步骤与说明）">删子段</button>` : ''}
+                       <button class="hdr-tool" data-act="del" title="删除该阶段（连同步骤与连线）">删除</button>`;
+        canvas.insertAdjacentHTML('beforeend',
+            `<div class="hdr-phase" data-phase="${p.id}" style="top:${P.y}px;height:${P.h}px;width:${headW}px">
+                <span class="phase-name" contenteditable="plaintext-only" spellcheck="false">${escapeHtml(p.name)}</span>
+                <span class="phase-tools">${tools}</span>
+            </div>`);
+    });
+
+    // 阶段行（网格体）：纵向网格线由每格 cell-bg 的 border-right 承当，不再单画 vline（避免双线）
+    doc.phases.forEach((p, pi) => {
+        canvas.insertAdjacentHTML('beforeend',
+            `<div class="grow" data-phase="${p.id}" style="left:${dataX}px;top:${po[pi].y}px;height:${po[pi].h}px;width:${bodyW - dataX}px"></div>`);
+    });
+
+    // 连线层
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.id = 'edges';
+    canvas.appendChild(svg);
+    const conn = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    conn.id = 'connectLayer';
+    conn.setAttribute('width', w);
+    conn.setAttribute('height', h);
+    conn.innerHTML = '<path d=""/>';
+    canvas.appendChild(conn);
+
+    // 步骤节点（备注列内不放步骤）
+    doc.steps.forEach(s => {
+        const r = roleById(s.role);
+        if (r && r.note) return;
+        canvas.appendChild(buildStepEl(s));
+    });
+
+    renderEdges();
+    syncTitle();
+}
+function buildStepEl(s) {
+    const el = document.createElement('div');
+    el.className = 'step';
+    el.dataset.id = s.id;
+    el.innerHTML = '<span class="center-block">' + renderText(s.text) + '</span>';
+    ['t', 'r', 'b', 'l'].forEach(d => {
+        const p = document.createElement('span');
+        p.className = 'pt ' + d;
+        p.dataset.dir = d;
+        el.appendChild(p);
+    });
+    positionStepEl(el, s);
+    return el;
+}
+function positionStepEl(el, s) {
+    const b = stepRect(s);
+    el.style.left = b.left + 'px';
+    el.style.top = b.top + 'px';
+    el.style.width = b.w + 'px';
+    el.style.height = b.h + 'px';
+}
+function syncTitle() {
+    const inp = $('#docTitle');
+    if (document.activeElement !== inp) inp.value = doc.title || '';
+}
+
+/* ══════════════════════ 数据变更 → 撤销/重做 + 存草稿 ══════════════════════ */
+let saveTimer = null;
+let undoStack = [], redoStack = [], lastDocJson = null;
+let storageWarned = false;   // 草稿超容量仅提示一次
+// 每次变更后调一次：同步捕获「变更前快照」入撤销栈（所有操作都在末端调一次 save，此处比较 lastDocJson 即得变更前状态）
+function save() {
+    const nowJson = JSON.stringify(doc);
+    if (lastDocJson !== null && nowJson !== lastDocJson) {
+        undoStack.push(lastDocJson);
+        if (undoStack.length > 100) undoStack.shift();   // 上限 100 步防内存膨胀
+        redoStack.length = 0;                            // 出现新操作 → 清空重做
+    }
+    lastDocJson = nowJson;
+    updateUndoUi();
+    // 图片以 base64 内嵌，草稿可能超 localStorage 容量：超过阈值提醒一次用「导出JSON」备份
+    if (nowJson.length > 3.5e6 && !storageWarned) {
+        storageWarned = true;
+        alert('画布含较多图片，本地草稿容量有限（约 5MB），重要内容请用「导出JSON」备份。');
+    }
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+        try { localStorage.setItem(SAVE_KEY, JSON.stringify({ savedAt: Date.now(), doc })); } catch (e) {}
+    }, 350);
+}
+function updateUndoUi() {
+    $('#btnUndo').disabled = !undoStack.length;
+    $('#btnRedo').disabled = !redoStack.length;
+}
+// 静默收起所有弹窗（撤销/重做时用：不提交也不删空步骤，避免会话数据干预恢复）
+function dismissModals() {
+    editingStepId = null; editingNote = null; editingEdgeId = null;
+    closeUrl();
+    $('#rtModal').classList.remove('show');
+    $('#rtColorModal').classList.remove('show');
+    $('#edgeModal').classList.remove('show');
+    $('#urlModal').classList.remove('show');
+}
+function applySnapshot(snapshot) {
+    dismissModals();
+    doc = adoptDoc(JSON.parse(snapshot));
+    lastDocJson = JSON.stringify(doc);       // 恢复态作为新基线 → 随后的 save 不会误入栈
+    selectedStepId = null; selectedEdgeId = null;
+    if (connect) exitConnect();
+    $('#docTitle').value = doc.title;
+    renderAll();
+    save();
+}
+function undo() {
+    if (!undoStack.length) return;
+    redoStack.push(JSON.stringify(doc));
+    applySnapshot(undoStack.pop());
+}
+function redo() {
+    if (!redoStack.length) return;
+    const snapshot = redoStack.pop();
+    undoStack.push(JSON.stringify(doc));     // 当前态回压撤销栈，重做后仍可按原路撤销
+    applySnapshot(snapshot);
+}
+// 承接外部 JSON / 草稿：补缺省字段 + 旧版数据迁移，返回规范化后的 doc（自包含，不依赖全局 doc）
+function adoptDoc(d) {
+    d.edges = d.edges || [];
+    d.title = d.title || '未命名流程';
+    d.roles.forEach(r => {
+        if (!r.bg) r.bg = DEF_BG;
+        if (r.name === '注意事项' && r.note === undefined) r.note = true;   // 旧草稿补说明列标记
+        if (r.name === '注意事项' && r.note) r.name = '说明';                // 旧草稿「注意事项」更名为说明
+    });
+    // 子阶段 id 去重：旧版可能生成重复的子阶段 id（新加子段与已有子段撞 id），磨损后多处同 id 会导致
+    // 双击最后一带加步骤/说明时被算进第一个同 id 带。逐个子阶段去重，重复者就地改唯一（引用归第一个，其余空带可再填）。
+    const idUsed = new Set();
+    d.roles.forEach(r => idUsed.add(r.id));
+    d.phases.forEach(q => idUsed.add(q.id));
+    d.steps.forEach(s => idUsed.add(s.id));
+    d.edges.forEach(e => idUsed.add(e.id));
+    d.phases.forEach(p => {
+        p.subs = p.subs || [];
+        p.subs.forEach(sub => {
+            if (idUsed.has(sub.id)) {
+                let i = 1;
+                while (idUsed.has('p' + i)) i++;
+                idUsed.add('p' + i);
+                sub.id = 'p' + i;
+            } else {
+                idUsed.add(sub.id);
+            }
+        });
+    });
+    // 旧草稿兼容：注释由纯文本升级为 segments（可含链接）；旧整段备注归入第一个子段
+    d.notes = d.notes || [];
+    d.notes.forEach(n => {
+        if (!Array.isArray(n.seg)) n.seg = (n.text != null && String(n.text)) ? [{ t: String(n.text), l: null }] : [];
+        if (n.sub === undefined) n.sub = '';
+        if (!n.sub) {   // 旧的整段备注：有子阶段的阶段归入第一个子段带
+            const p = d.phases.find(q => q.id === n.phase);
+            if (p && p.subs && p.subs.length) n.sub = p.subs[0].id || '';
+        }
+    });
+    // 行号补齐（同 阶段×工种×子段 格内排 0..n-1）+ 空步骤移除（连带其连线）
+    const map = new Map();
+    d.steps.forEach(s => {
+        const k = s.phase + '|' + s.role + '|' + (s.sub || '');
+        s.row = map.get(k) || 0;
+        map.set(k, s.row + 1);
+    });
+    d.steps = d.steps.filter(s => stepTextTrim(s));
+    const alive = new Set(d.steps.map(s => s.id));
+    d.edges = d.edges.filter(e => alive.has(e.from) && alive.has(e.to));
+    return d;
+}
+function load() {
+    try {
+        const raw = JSON.parse(localStorage.getItem(SAVE_KEY));
+        if (raw && raw.doc && Array.isArray(raw.doc.roles) && Array.isArray(raw.doc.phases) && Array.isArray(raw.doc.steps)) {
+            doc = adoptDoc(raw.doc);
+            save();   // 迁移后落库一次
+            return;
+        }
+    } catch (e) {}
+    doc = buildTemplate();
+    save();
+}
+
+/* ══════════════════════ 操作：工种 / 阶段 ══════════════════════ */
+function addRole() {
+    doc.roles.push({ id: uid('role'), name: '角色 ' + (doc.roles.length + 1), bg: ROLE_CYCLE[doc.roles.length % ROLE_CYCLE.length] });
+    renderAll(); save();
+    $('#canvas').focus();
+}
+function addPhase() {
+    doc.phases.push({ id: uid('phase'), name: '阶段 ' + (doc.phases.length + 1) });
+    renderAll(); save();
+    $('#canvas').focus();
+}
+function addNote() {
+    const n = doc.roles.filter(r => r.note).length;
+    doc.roles.push({ id: uid('role'), name: n ? '说明' + (n + 1) : '说明', bg: '#FDEBEC', note: true });
+    renderAll(); save();
+    $('#canvas').focus();
+}
+function deleteRole(id) {
+    const r = roleById(id);
+    if (!r) return;
+    const cnt = doc.steps.filter(s => s.role === id).length;
+    if (!confirm('删除工种「' + r.name + '」？其内 ' + cnt + ' 个步骤及相关连线将一并删除。')) return;
+    const gone = new Set(doc.steps.filter(s => s.role === id).map(s => s.id));
+    doc.roles = doc.roles.filter(x => x.id !== id);
+    doc.steps = doc.steps.filter(s => s.role !== id);
+    doc.edges = doc.edges.filter(e => !(gone.has(e.from) || gone.has(e.to)));
+    doc.notes = (doc.notes || []).filter(n => n.role !== id);
+    if (selectedStepId && gone.has(selectedStepId)) selectedStepId = null;
+    renderAll(); save();
+}
+function deletePhase(id) {
+    const p = phaseById(id);
+    if (!p) return;
+    const cnt = doc.steps.filter(s => s.phase === id).length;
+    if (!confirm('删除阶段「' + p.name + '」？其内 ' + cnt + ' 个步骤及相关连线将一并删除。')) return;
+    const gone = new Set(doc.steps.filter(s => s.phase === id).map(s => s.id));
+    doc.phases = doc.phases.filter(x => x.id !== id);
+    doc.steps = doc.steps.filter(s => s.phase !== id);
+    doc.edges = doc.edges.filter(e => !(gone.has(e.from) || gone.has(e.to)));
+    doc.notes = (doc.notes || []).filter(n => n.phase !== id);
+    if (selectedStepId && gone.has(selectedStepId)) selectedStepId = null;
+    renderAll(); save();
+}
+function commitRoleName(id, name) {
+    const r = roleById(id);
+    if (!r) return;
+    r.name = String(name).trim() || '未命名工种';
+    save();
+    requestAnimationFrame(() => renderAll());
+}
+function commitPhaseName(id, name) {
+    const p = phaseById(id);
+    if (!p) return;
+    p.name = String(name).trim() || '未命名阶段';
+    save();
+    requestAnimationFrame(() => renderAll());
+}
+
+/* ══════════════════════ 操作：子阶段 ══════════════════════ */
+function addSubPhase(phaseId) {
+    const p = phaseById(phaseId);
+    if (!p) return;
+    p.subs = p.subs || [];
+    const n = p.subs.length + 1;
+    p.subs.push({ id: uid('phase'), name: '子阶段 ' + n });
+    if (n === 1) {
+        // 首次添加：把该阶段既有步骤归入第一个子阶段，原普通阶段升级为“带子阶段”
+        doc.steps.forEach(s => { if (s.phase === phaseId && !(s.sub || '')) s.sub = p.subs[0].id; });
+        // 旧整段备注（sub 为空）归入第一个子段带
+        doc.notes.forEach(x => { if (x.phase === phaseId && !(x.sub || '')) x.sub = p.subs[0].id; });
+        compactRows();
+    }
+    renderAll(); save();
+}
+// 删除最后一个子阶段（表头「删子段」）：带内步骤及相连连线、对应说明一并删除
+function deleteLastSubPhase(phaseId) {
+    const p = phaseById(phaseId);
+    if (!p || !p.subs || !p.subs.length) return;
+    const sub = p.subs[p.subs.length - 1];
+    const cnt = doc.steps.filter(s => s.phase === phaseId && (s.sub || '') === sub.id).length;
+    if (!confirm(`删除子阶段「${sub.name}」？其内 ${cnt} 个步骤及相关连线、说明将一并删除。`)) return;
+    const gone = new Set(doc.steps.filter(s => s.phase === phaseId && (s.sub || '') === sub.id).map(s => s.id));
+    doc.steps = doc.steps.filter(s => !(s.phase === phaseId && (s.sub || '') === sub.id));
+    doc.edges = doc.edges.filter(e => !(gone.has(e.from) || gone.has(e.to)));
+    doc.notes = (doc.notes || []).filter(n => n.phase !== phaseId || (n.sub || '') !== sub.id);
+    p.subs.pop();   // 删到空即恢复为简单阶段（整段一带，sub 归空）
+    if (selectedStepId && gone.has(selectedStepId)) selectedStepId = null;
+    renderAll(); save();
+}
+/* ══════════════════════ 注意事项列：段落 + 内联链接（与步骤同款 segments）═ ══════════════════════ */
+// 注意事项按「阶段×工种×子阶段」分格存储：sub 为空 = 简单阶段整段一格
+function noteSegFor(phaseId, roleId, subId) {
+    const n = (doc.notes || []).find(x => x.phase === phaseId && x.role === roleId && (x.sub || '') === (subId || ''));
+    return n ? (Array.isArray(n.seg) ? n.seg : []) : [];
+}
+function updateNoteSeg(phaseId, roleId, subId, seg) {
+    doc.notes = doc.notes || [];
+    const key = subId || '';
+    const k = doc.notes.findIndex(x => x.phase === phaseId && x.role === roleId && (x.sub || '') === key);
+    if (k >= 0) doc.notes[k].seg = seg;
+    else doc.notes.push({ phase: phaseId, role: roleId, sub: key, seg });
+    save();
+}
+
+/* ══════════════════════ 操作：步骤 / 连线 ══════════════════════ */
+function addStep(phaseId, roleId, subId) {
+    const r = roleById(roleId);
+    if (r && r.note) return null;   // 注意事项列不建步骤，双击格子走富文本编辑器
+    const P = po[phaseIndex(phaseId)];
+    let sub;
+    if (P.subs.length) sub = (subId && P.subs.some(q => q.id === subId)) ? subId : P.subs[0].id;
+    // 每子格一步：同 阶段×工种×子段 格内已有步骤则追加到下一子行
+    const s = { id: uid('step'), phase: phaseId, role: roleId, sub, row: nextRowIn(phaseId, roleId, sub, null), text: [] };
+    doc.steps.push(s);
+    renderAll(); save();
+    return s;
+}
+function deleteStep(id) {
+    doc.steps = doc.steps.filter(s => s.id !== id);
+    doc.edges = doc.edges.filter(e => e.from !== id && e.to !== id);
+    if (selectedStepId === id) selectedStepId = null;
+    renderAll(); save();
+}
+function stepTextTrim(s) { return (s.text || []).filter(x => !x.img).map(x => x.t).join('').replace(/\s/g, ''); }
+// 空步骤不显示：全数据里清掉无任何文字的步骤（连同其连线）
+function purgeEmptySteps() {
+    let changed = false;
+    doc.steps = doc.steps.filter(s => { if (!stepTextTrim(s)) { changed = true; return false; } return true; });
+    if (changed) {
+        const alive = new Set(doc.steps.map(s => s.id));
+        doc.edges = doc.edges.filter(e => alive.has(e.from) && alive.has(e.to));
+    }
+    return changed;
+}
+function deleteEdge(id) {
+    doc.edges = doc.edges.filter(e => e.id !== id);
+    if (selectedEdgeId === id) selectedEdgeId = null;
+    renderAll(); save();
+}
+
+/* ══════════════════════ 富文本编辑弹窗（步骤 & 注意事项格共用）═ ══════════════════════ */
+function openEditor(id, note) {
+    $('#rtBold').style.display = '';                       // 加粗/字色：步骤与备注通用
+    $('#rtColor').style.display = '';
+    $('#rtBarSep').style.display = '';
+    $('#rtLink').style.display = note ? '' : 'none';       // 只有注意事项支持插链接/图片
+    $('#rtUnlink').style.display = note ? '' : 'none';
+    $('#rtImg').style.display = note ? '' : 'none';
+    $('#rtImgFile').style.display = 'none';                // 隐藏的文件框，点击按钮触发
+    $('#rtHint').textContent = note ? '加粗/字色/链接/图片，可换行' : '加粗/字色，可换行';
+    if (note) {
+        editingNote = note;
+        $('#rtTitle').textContent = '说明';
+        $('#rtInput').innerHTML = segsToHtml(noteSegFor(note.phase, note.role, note.sub || ''));
+    } else {
+        const s = stepById(id);
+        if (!s) return;
+        editingStepId = id;
+        $('#rtTitle').textContent = '编辑步骤';
+        $('#rtInput').innerHTML = segsToHtml(s.text);
+    }
+    $('#rtModal').classList.add('show');
+    $('#rtInput').focus();
+    try {
+        const r = document.createRange();
+        r.selectNodeContents($('#rtInput'));
+        r.collapse(false);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(r);
+    } catch (e) {}
+    closeUrl();
+    closeEdgeEditor();
+    $('#rtColorModal').classList.remove('show');
+}
+function closeEditor(commit) {
+    if (!editingStepId && !editingNote) return;
+    if (commit && editingStepId) {
+        const s = stepById(editingStepId);
+        if (s) {
+            s.text = parseRichEditable($('#rtInput'));
+            if (stepTextTrim(s)) {
+                renderAll(); save();         // 重算盒子尺寸/行高 + 写草稿（编辑后即时生效、刷新保留）
+            } else {
+                deleteStep(s.id);            // 无文字 → 自动移除（连带连线）
+            }
+        }
+    } else if (commit && editingNote) {
+        updateNoteSeg(editingNote.phase, editingNote.role, editingNote.sub || '', parseRichEditable($('#rtInput')));
+        renderAll(); save();                 // 备注行高按新文本重算 + 写草稿
+    } else if (!commit && editingStepId) {
+        // 取消：刚新增、尚未填内容的空步骤一并移除（等于取消新增）
+        const s = stepById(editingStepId);
+        if (s && !stepTextTrim(s)) deleteStep(s.id);
+    }
+    editingStepId = null;
+    editingNote = null;
+    $('#rtModal').classList.remove('show');
+    $('#canvas').focus();
+}
+function portsHtml() {
+    return ['t', 'r', 'b', 'l'].map(d => '<span class="pt ' + d + '" data-dir="' + d + '"></span>').join('');
+}
+
+/* ── 插入链接 ── */
+let savedUrlSel = null;   // 打开链接弹窗时暂存选中的文字（聚焦 urlInput 会清空 document 选区，先存下来，插入时恢复）
+function openUrl() {
+    const sel = window.getSelection();
+    savedUrlSel = (sel && sel.rangeCount > 0 && !sel.isCollapsed) ? sel.getRangeAt(0).cloneRange() : null;
+    $('#urlInput').value = '';
+    $('#urlModal').classList.add('show');
+    $('#urlInput').focus();
+}
+function closeUrl() {
+    savedUrlSel = null;
+    $('#urlModal').classList.remove('show');
+}
+function insertLink() {
+    const url = $('#urlInput').value.trim();
+    if (!url) return;
+    if (!savedUrlSel) { alert('请先在文字中选中要加链接的部分。'); return; }
+    try {
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(savedUrlSel.cloneRange());   // 恢复弹窗打开前的选中文字，再包链接
+        document.execCommand('createLink', false, /^[a-z][a-z0-9+.-]*:/i.test(url) ? url : 'https://' + url);
+    } catch (e) {}
+    $('#rtInput').focus();
+    closeUrl();
+}
+$('#rtLink').addEventListener('mousedown', e => e.preventDefault());     // 保住选区
+$('#rtLink').addEventListener('click', openUrl);
+$('#rtUnlink').addEventListener('mousedown', e => e.preventDefault());
+$('#rtUnlink').addEventListener('click', () => {
+    try { document.execCommand('unlink'); } catch (e) {}
+    $('#rtInput').focus();
+});
+$('#urlOk').addEventListener('click', insertLink);
+$('#urlCancel').addEventListener('click', closeUrl);
+$('#urlInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); insertLink(); } });
+
+/* ── 加粗 / 字色（通用富文本，步骤与备注都可） ── */
+$('#rtBold').addEventListener('mousedown', e => e.preventDefault());     // 保住选区
+$('#rtBold').addEventListener('click', () => {
+    $('#rtInput').focus();
+    try { document.execCommand('bold'); } catch (e) {}
+});
+// 字色面板：Notion 饱和色 + 默认（黑）
+function openRtColor() {
+    const cur = (() => {
+        try {
+            const sel = window.getSelection();
+            if (sel.rangeCount && $('#rtInput').contains(sel.anchorNode) && !sel.isCollapsed) {
+                return (cssRgbToHex(document.queryCommandValue('foreColor')) || '').toLowerCase();
+            }
+        } catch (e) {}
+        return '';
+    })();
+    const both = (col, css, label) => {
+        const hex = (col || '#000000').toLowerCase();
+        const sel = cur && hex === cur;
+        return `<button class="swatch${sel ? ' sel' : ''}" data-color="${col}" type="button"><span class="sw-circ" style="background:${css}"></span>${label}</button>`;
+    };
+    $('#rtSwatches').innerHTML =
+        both('', '#000000', '默认') +
+        NOTION_COLORS.map(c => both(c.dot, c.dot, c.name)).join('');
+    $('#rtColorModal').classList.add('show');
+    $('#rtInput').focus();
+}
+// 十六进制色 → execCommand('foreColor') 可识别的 rgb 字符串
+const hexToRgbStr = h => {
+    let s = String(h).replace(/^#/, '');
+    if (s.length === 3) s = s.split('').map(x => x + x).join('');
+    const n = parseInt(s, 16);
+    if (isNaN(n)) return null;
+    return `rgb(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255})`;
+};
+$('#rtColor').addEventListener('mousedown', e => e.preventDefault());
+$('#rtColor').addEventListener('click', () => {
+    $('#rtInput').focus();
+    openRtColor();
+});
+$('#rtSwatches').addEventListener('mousedown', e => e.preventDefault());  // 保住选区（点色板不丢）
+$('#rtSwatches').addEventListener('click', e => {
+    const b = e.target.closest('.swatch');
+    if (!b) return;
+    const col = b.dataset.color;
+    const rgb = hexToRgbStr(col || '#000000');
+    $('#rtInput').focus();
+    try { if (rgb) document.execCommand('foreColor', false, rgb); } catch (e) {}
+    $('#rtColorModal').classList.remove('show');
+});
+$('#rtColorCancel').addEventListener('click', () => $('#rtColorModal').classList.remove('show'));
+$('#rtColorModal').addEventListener('click', e => { if (e.target === $('#rtColorModal')) $('#rtColorModal').classList.remove('show'); });
+
+/* ── 插入图片（注意事项格：选中文件 → 压缩到 640px 内嵌，纯本地不外传） ── */
+$('#rtImg').addEventListener('mousedown', e => e.preventDefault());     // 保住编辑光标
+$('#rtImg').addEventListener('click', () => $('#rtImgFile').click());
+$('#rtImgFile').addEventListener('change', () => {
+    const f = $('#rtImgFile').files[0];
+    $('#rtImgFile').value = '';
+    if (!f) return;
+    if (!/^image\//.test(f.type)) { alert('请选择图片文件。'); return; }
+    const rd = new FileReader();
+    rd.onload = () => insertRichImage(rd.result, f.type);
+    rd.readAsDataURL(f);
+});
+// 压缩图片到最长边 640px 后插入编辑光标位置；返回 {w,h} 供行高估算
+const RICH_IMG_MAX = 640;
+function insertRichImage(dataUrl, mime) {
+    const img = new Image();
+    img.onload = () => {
+        const MAX = RICH_IMG_MAX;
+        let { naturalWidth: w, naturalHeight: h } = img;
+        const sc = Math.min(1, MAX / Math.max(w, h));
+        w = Math.max(1, Math.round(w * sc));
+        h = Math.max(1, Math.round(h * sc));
+        const cv = document.createElement('canvas');
+        cv.width = w; cv.height = h;
+        const ctx = cv.getContext('2d');
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);   // 透明图垫白底（JPEG 无 alpha）
+        ctx.drawImage(img, 0, 0, w, h);
+        const out = (mime === 'image/png' || mime === 'image/gif' || mime === 'image/webp')
+            ? cv.toDataURL('image/png') : cv.toDataURL('image/jpeg', 0.85);
+        const el = document.createElement('img');
+        el.src = out;
+        el.setAttribute('data-iw', w);
+        el.setAttribute('data-ih', h);
+        // 替换当前选区为图片，光标停在图片后
+        const ed = $('#rtInput');
+        ed.focus();
+        let sel = window.getSelection();
+        let range;
+        if (sel && sel.rangeCount && ed.contains(sel.getRangeAt(0).commonAncestorContainer)) {
+            range = sel.getRangeAt(0);
+        } else {
+            range = document.createRange();
+            range.selectNodeContents(ed);
+            range.collapse(false);
+            sel.removeAllRanges(); sel.addRange(range);
+        }
+        range.deleteContents();
+        range.insertNode(el);
+        range.setStartAfter(el);
+        range.collapse(true);
+        sel.removeAllRanges(); sel.addRange(range);
+    };
+    img.onerror = () => alert('图片加载失败');
+    img.src = dataUrl;
+}
+// 编辑器内 Ctrl+V 贴图：直接从剪贴板拿图片，走同一套压缩插入
+$('#rtInput').addEventListener('paste', e => {
+    if (!editingNote) return;
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    for (const it of items) {
+        if (it.kind === 'file' && /^image\//.test(it.type)) {
+            e.preventDefault();
+            const f = it.getAsFile();
+            const rd = new FileReader();
+            rd.onload = () => insertRichImage(rd.result, f.type);
+            rd.readAsDataURL(f);
+            return;
+        }
+    }
+});
+$('#urlModal').addEventListener('click', e => { if (e.target === $('#urlModal')) closeUrl(); });
+$('#rtOk').addEventListener('click', () => closeEditor(true));
+$('#rtCancel').addEventListener('click', () => closeEditor(false));
+$('#rtModal').addEventListener('click', e => { if (e.target === $('#rtModal')) closeEditor(false); });
+
+/* ══════════════════════ 连线标签弹窗 ══════════════════════ */
+function openEdgeEditor(id) {
+    const e = edgeById(id);
+    if (!e) return;
+    editingEdgeId = id;
+    $('#edgeInput').value = e.label || '';
+    $('#edgeModal').classList.add('show');
+    $('#edgeInput').focus();
+    closeUrl();
+}
+function closeEdgeEditor(commit) {
+    if (!editingEdgeId) return;
+    if (commit) {
+        const e = edgeById(editingEdgeId);
+        if (e) { e.label = $('#edgeInput').value.trim(); renderEdges(); save(); }
+    }
+    editingEdgeId = null;
+    $('#edgeModal').classList.remove('show');
+    $('#canvas').focus();
+}
+$('#edgeOk').addEventListener('click', () => closeEdgeEditor(true));
+$('#edgeClear').addEventListener('click', () => { $('#edgeInput').value = ''; closeEdgeEditor(true); });
+$('#edgeCancel').addEventListener('click', () => closeEdgeEditor(false));
+$('#edgeModal').addEventListener('click', e => { if (e.target === $('#edgeModal')) closeEdgeEditor(false); });
+$('#edgeInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); closeEdgeEditor(true); } });
+
+/* ══════════════════════ 画布事件（委托） ══════════════════════ */
+const canvas = $('#canvas');
+
+(function applyTheme() {
+    const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    $('#btnTheme').textContent = dark ? '浅色' : '深色';
+    $('#btnTheme').addEventListener('click', () => {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const next = isDark ? 'light' : 'dark';
+        try { localStorage.setItem('ui-theme', next); } catch (e) {}
+        document.documentElement.setAttribute('data-theme', next);
+        $('#btnTheme').textContent = isDark ? '深色' : '浅色';
+    });
+})();
+
+$('#docTitle').addEventListener('input', () => { doc.title = $('#docTitle').value; save(); });
+$('#btnAddRole').addEventListener('click', addRole);
+$('#btnAddPhase').addEventListener('click', addPhase);
+$('#btnAddNote').addEventListener('click', addNote);
+$('#btnTemplate').addEventListener('click', () => {
+    if (!confirm('载入示例模板会覆盖当前画布内容，确定继续？')) return;
+    doc = buildTemplate();
+    selectedStepId = null;
+    selectedEdgeId = null;
+    renderAll();
+    save();
+});
+$('#btnClear').addEventListener('click', () => {
+    if (!confirm('清空所有步骤与连线？（工种/阶段保留）')) return;
+    doc.steps = [];
+    doc.edges = [];
+    selectedStepId = null; selectedEdgeId = null;
+    renderAll(); save();
+});
+$('#btnUndo').addEventListener('click', () => { $('#canvas').focus(); undo(); });
+$('#btnRedo').addEventListener('click', () => { $('#canvas').focus(); redo(); });
+
+/* ══════════════════════ 阶段3：导出 / 打印 / 导入 ══════════════════════ */
+function dateStamp() {
+    const d = new Date();
+    const p = n => String(n).padStart(2, '0');
+    return '' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate());
+}
+function safeTitle() {
+    const t = String(doc.title || '').trim().replace(/[\\/:*?"<>|]/g, '_');
+    return t || '未命名流程';
+}
+function exportName(ext) { return dateStamp() + '_' + safeTitle() + '_泳道图.' + ext; }
+function downloadBlob(blob, filename) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1200);
+}
+function downloadText(text, filename, mime) {
+    downloadBlob(new Blob([text], { type: mime || 'application/octet-stream', charset: 'utf-8' }), filename);
+}
+function bodyDims() {
+    if (!ro.length) buildAxes();
+    const lastR = ro[ro.length - 1], lastP = po[po.length - 1];
+    return { bw: lastR ? lastR.x + lastR.w : 100, bh: lastP ? lastP.y + lastP.h : 100 };
+}
+
+/* ── JSON 导出 / 导入（全量工程存档，可恢复） ── */
+$('#btnExportJson').addEventListener('click', exportJson);
+$('#btnImportJson').addEventListener('click', () => $('#fileJson').click());
+function exportJson() {
+    const payload = { app: '泳道图', schema: doc.schema || 2, savedAt: Date.now(), doc };
+    downloadText(JSON.stringify(payload, null, 2), exportName('json'));
+}
+$('#fileJson').addEventListener('change', e => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+        let raw;
+        try { raw = JSON.parse(rd.result); }
+        catch (err) { alert('导入失败：JSON 解析错误。'); return; }
+        const d = raw && raw.doc ? raw.doc : raw;
+        if (!d || !Array.isArray(d.roles) || !Array.isArray(d.phases) || !Array.isArray(d.steps)) {
+            alert('JSON 文件格式不正确，无法导入。需要角色的数组、阶段数组与步骤数组。'); return;
+        }
+        if (!confirm('导入将覆盖当前画布内容（可在导入后重新导出存档），确定继续？')) return;
+        doc = adoptDoc(d);
+        selectedStepId = null; selectedEdgeId = null;
+        exitConnect();
+        renderAll();
+        save();
+        alert('已导入：「' + (doc.title || '未命名流程') + '」');
+    };
+    rd.readAsText(f);
+});
+
+/* ── PNG 导出：捕获画布 DOM → SVG foreignObject → canvas（2x） → 下载 ── */
+$('#btnExportPng').addEventListener('click', exportPng);
+function exportPng() {
+    try {
+        const { bw, bh } = bodyDims();
+        const svg = captureSvg(bw, bh);
+        // 用 data URI 而非 Blob URL：file:// 下 blob 图片源可能静默不加载（onload/onerror 都不触发）
+        const img = new Image();
+        img.onload = () => {
+            try {
+                const scale = 2;
+                const c = document.createElement('canvas');
+                c.width = Math.max(1, Math.round(bw * scale));
+                c.height = Math.max(1, Math.round(bh * scale));
+                const ctx = c.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, c.width, c.height);
+                ctx.scale(scale, scale);
+                ctx.drawImage(img, 0, 0, bw, bh);
+                // 同步取位图：画布若被污染会在此抛 SecurityError，进入 catch 显式报错
+                const dataUrl = c.toDataURL('image/png');
+                const a = document.createElement('a');
+                a.href = dataUrl;
+                a.download = exportName('png');
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => a.remove(), 1000);
+            } catch (err) {
+                alert('PNG 导出失败：' + (err && err.message ? err.message : err));
+            }
+        };
+        img.onerror = () => alert('PNG 导出失败：SVG 转图片失败（浏览器拒绝渲染该画布）。');
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    } catch (err) {
+        alert('导出失败：' + (err && err.message ? err.message : err));
+    }
+}
+// 把 #canvas 子树做成自包含 SVG（样式内嵌 + 纸白底、无网格点），供 PNG/打印共用。
+// 用 DOM 构造 + XMLSerializer 序列化（不能用 innerHTML 拼字符串：HTML 的 <br> 不是合法 XML，
+// 且 <style> 内容会被 XML 解析器误判——序列化会自动自闭合空元素、补命名空间、转义样式文本）。
+function captureSvg(bw, bh) {
+    const el = $('#canvas').cloneNode(true);
+    el.removeAttribute('id');                            // 避免与屏幕画布同 id
+    el.removeAttribute('style');
+    el.style.position = 'relative';
+    el.style.width = bw + 'px';
+    el.style.height = bh + 'px';
+    el.style.background = '#ffffff';
+    el.style.backgroundImage = 'none';                   // 导出/打印不要点阵网格
+    el.style.boxShadow = 'none';
+    el.style.margin = '0';
+    const cl = el.querySelector('#connectLayer');
+    if (cl) cl.remove();
+    el.querySelectorAll('.selected, .connecting, .conn-target, .dragging').forEach(n =>
+        n.classList.remove('selected', 'connecting', 'conn-target', 'dragging'));
+    // 内嵌样式：先补 4 个网格灰阶 CSS 变量（画布纸白固定不随主题），再带上页面全部样式
+    let css = ':root{--grid-solid:#6b7683;--grid-dash:#96a2af;--grid-dot:rgba(0,0,0,.0);}\n';
+    document.querySelectorAll('style').forEach(s => { css += s.textContent + '\n'; });
+
+    const svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svgEl.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+    svgEl.setAttribute('width', bw);
+    svgEl.setAttribute('height', bh);
+    svgEl.setAttribute('viewBox', '0 0 ' + bw + ' ' + bh);
+    const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+    styleEl.textContent = css;                           // 序列化时自动做 XML 转义，无需 CDATA
+    svgEl.appendChild(styleEl);
+    const fo = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
+    fo.setAttribute('width', '100%');
+    fo.setAttribute('height', '100%');
+    fo.appendChild(el);
+    svgEl.appendChild(fo);
+    return new XMLSerializer().serializeToString(svgEl);
+}
+
+/* ── 打印 / PDF：按画布实际尺寸单页（不固定 A4，链接保留可点） ── */
+$('#btnPrint').addEventListener('click', () => { buildPrintArea(); setTimeout(() => window.print(), 50); });
+// 动态页尺寸：@page 取画布实际宽高（96dpi → 1:1 物理尺寸，margin 0），页面恰好等于画布，无缩放无分页
+function setPageSize(w, h) {
+    let s = document.getElementById('pageSizeCss');
+    if (!s) { s = document.createElement('style'); s.id = 'pageSizeCss'; document.head.appendChild(s); }
+    s.textContent = `@page { size: ${w}px ${h}px; margin: 0; }`;
+}
+function buildPrintArea() {
+    let pa = $('#printArea');
+    if (!pa) { pa = document.createElement('div'); pa.id = 'printArea'; document.body.appendChild(pa); }
+    pa.innerHTML = '';
+    const { bw, bh } = bodyDims();
+    setPageSize(bw, bh);
+
+    const src = $('#canvas').cloneNode(true);
+    src.removeAttribute('id');   // 关键：打印 CSS 的 #canvas{display:none} 会顺带隐藏克隆体 → 空白页
+    src.removeAttribute('style');
+    src.style.position = 'absolute';
+    src.style.left = '0';
+    src.style.top = '0';
+    src.style.width = bw + 'px';
+    src.style.height = bh + 'px';
+    src.style.background = '#ffffff';
+    src.style.backgroundImage = 'none';
+    src.style.boxShadow = 'none';
+    src.style.margin = '0';
+    const cl = src.querySelector('#connectLayer');
+    if (cl) cl.remove();
+    src.querySelectorAll('.selected, .connecting, .conn-target, .dragging').forEach(el =>
+        el.classList.remove('selected', 'connecting', 'conn-target', 'dragging'));
+
+    const page = document.createElement('section');
+    page.className = 'print-page';
+    page.style.width = bw + 'px';
+    page.style.height = bh + 'px';
+    page.appendChild(src);
+    pa.appendChild(page);
+}
+window.addEventListener('beforeprint', () => buildPrintArea());
+window.addEventListener('afterprint', () => {
+    const pa = $('#printArea'); if (pa) pa.innerHTML = '';
+    const ps = document.getElementById('pageSizeCss'); if (ps) ps.remove();
+});
+
+/* ── Excel 步骤明细（xlsx-js-style CDN，微软雅黑 10pt；含单链接节点放可点超链接） ── */
+$('#btnExcel').addEventListener('click', exportExcel);
+// 按需加载 xlsx 库：首次导出时才注入 CDN 脚本，加载完继续；保持 file:// 直开零依赖（离线时脚本注入失败 → 给出原提示）
+let xlsxLoading = null;
+function loadXLSX() {
+    if (window.XLSX && XLSX.utils && XLSX.utils.encode_cell) return Promise.resolve();
+    if (xlsxLoading) return xlsxLoading;
+    xlsxLoading = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
+        s.onload = () => (window.XLSX && XLSX.utils && XLSX.utils.encode_cell) ? resolve() : reject(new Error('xlsx 加载异常'));
+        s.onerror = () => reject(new Error('xlsx 加载失败'));
+        document.head.appendChild(s);
+    });
+    return xlsxLoading;
+}
+async function exportExcel() {
+    try { await loadXLSX(); }
+    catch (err) {
+        alert('Excel 组件未加载（需联网首次加载 xlsx 库）。请联网后再导出。');
+        return;
+    }
+    const wb = XLSX.utils.book_new();
+    buildSwimlaneSheet(wb);   // Sheet1：还原画布泳道网格（阶段=行、工种=列、淡色底、无白卡）
+    buildDetailSheet(wb);     // Sheet2：保留连线步骤明细表
+    XLSX.writeFile(wb, exportName('xlsx'));
+}
+/* Sheet1 泳道网格：按 buildAxes 的行列几何重建——表头一行 + 每阶段若干子行；
+   阶段名格竖排（textRotation 255）跨整段纵向合并；说明格按 band 纵向合并、左对齐换行；
+   步骤文字直接居中写在淡色底格内（整格加粗深色，无白卡，混合富文本整格化）；
+   图片省略（Excel 无内嵌图片 API），有图的说明格标注 【图片】占位。 */
+function buildSwimlaneSheet(wb) {
+    if (!ro.length) buildAxes();
+    const ws = XLSX.utils.aoa_to_sheet([]);
+    const setCell = (r, c, v, s) => { ws[XLSX.utils.encode_cell({ r, c })] = { t: 's', v: v == null ? '' : String(v), s }; };
+    const GRID = '6B7683';
+    const thin = { style: 'thin', color: { rgb: GRID } };
+    const bdFull = { top: thin, bottom: thin, left: thin, right: thin };
+    const font = { name: '微软雅黑', sz: 10 };
+    const lightFill = hex => ({ patternType: 'solid', fgColor: { rgb: (hex || '#FFFFFF').replace('#', '').toUpperCase() } });
+    const merges = [];
+
+    // ── 顶部表头行：左上角 + 各工种（饱和色底白字，说明列同样处理） ──
+    setCell(0, 0, '', {
+        fill: lightFill('#FBFBFC'), font,
+        alignment: { horizontal: 'center', vertical: 'center' }, border: bdFull });
+    doc.roles.forEach((rr, ci) => {
+        setCell(0, ci + 1, rr.name, {
+            fill: lightFill(roleDot(rr)),
+            font: Object.assign({}, font, { bold: true, color: { rgb: 'FFFFFF' } }),
+            alignment: { horizontal: 'center', vertical: 'center' }, border: bdFull });
+    });
+
+    // ── 数据区：每阶段拆成若干 band（子阶段带），每条 band 拆成若干子行 ──
+    let er = 1;   // 当前 Excel 行号
+    doc.phases.forEach((p, pi) => {
+        const P = po[pi];
+        const phaseStart = er;
+        // 阶段名 / 说明列底色格（第 0 列）每个子行先铺底
+        P.bands.forEach((b, bi) => {
+            const bandStart = er;
+            const sub = b.sub || '';
+            const nRows = b.rows.length;
+            for (let r = 0; r < nRows; r++, er++) {
+                // 第 0 列：阶段名合并区占位（底色浅灰 + 全边框）
+                setCell(er, 0, '', {
+                    fill: lightFill('#FBFBFC'), font,
+                    alignment: { horizontal: 'center', vertical: 'center' }, border: bdFull });
+                doc.roles.forEach((rr, ci) => {
+                    const c = ci + 1;
+                    if (rr.note) {
+                        // 说明格：内容只在 band 首行写入，纵向合并；有图标注占位
+                        let v = '';
+                        const segs = noteSegFor(p.id, rr.id, sub);
+                        if (r === 0) {
+                            v = segs.filter(x => !x.img).map(x => x.t || '').join('');
+                            if (segs.some(x => x.img)) v += (v ? '\n' : '') + '【图片】';
+                        }
+                        setCell(er, c, v, {
+                            fill: lightFill(rr.bg),
+                            font: Object.assign({}, font, { color: { rgb: '2A2F3A' } }),
+                            alignment: { horizontal: 'left', vertical: 'center', wrapText: true }, border: bdFull });
+                    } else {
+                        const stepsIn = doc.steps.filter(st =>
+                            st.phase === p.id && st.role === rr.id && (st.sub || '') === sub && (st.row || 0) === r);
+                        const v = stepsIn.map(st =>
+                            (st.text || []).filter(x => !x.img).map(x => x.t || '').join('').replace(/[\r\n]+/g, ' ')
+                        ).join('\n');
+                        setCell(er, c, v, {
+                            fill: lightFill(rr.bg),
+                            font: Object.assign({}, font, { bold: true, color: { rgb: '2A2F3A' } }),
+                            alignment: { horizontal: 'center', vertical: 'center', wrapText: true }, border: bdFull });
+                    }
+                });
+            }
+            // 说明格按 band 纵向合并（该格是左对齐整段说明）
+            doc.roles.forEach((rr, ci) => {
+                if (rr.note && nRows > 1)
+                    merges.push({ s: { r: bandStart, c: ci + 1 }, e: { r: er - 1, c: ci + 1 } });
+            });
+        });
+        // 阶段名格竖排、跨整段纵向合并
+        merges.push({ s: { r: phaseStart, c: 0 }, e: { r: er - 1, c: 0 } });
+        setCell(phaseStart, 0, p.name, {
+            fill: lightFill('#FBFBFC'),
+            font: Object.assign({}, font, { bold: true, color: { rgb: '333A48' } }),
+            alignment: { horizontal: 'center', vertical: 'center', wrapText: true, textRotation: 255 }, border: bdFull });
+    });
+
+    ws['!merges'] = merges;
+    ws['!cols'] = [{ wch: 6 }].concat(doc.roles.map(rr => {
+        const wpx = measureRoleW(rr.name) * (rr.note ? 2 : 1);
+        return { wch: Math.max(8, Math.round(wpx / 7)) };
+    }));
+    const rows = [{ hpt: 42 }];   // 表头行 56px → 42pt
+    doc.phases.forEach((p, pi) => po[pi].bands.forEach(b =>
+        b.rows.forEach(rh => rows.push({ hpt: Math.max(20, Math.round(rh * 0.75)) }))));
+    ws['!rows'] = rows;
+    ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: er - 1, c: doc.roles.length } });
+    XLSX.utils.book_append_sheet(wb, ws, '泳道图');
+}
+/* Sheet2 连线步骤明细表（沿用原逻辑：含单链接节点放可点超链接） */
+function buildDetailSheet(wb) {
+    const bd = { style: 'thin', color: { rgb: 'D6DAE0' } };
+    const bdbox = { top: bd, right: bd, bottom: bd, left: bd };
+    const hs = {
+        fill: { patternType: 'solid', fgColor: { rgb: 'EAF0F9' } },
+        font: { name: '微软雅黑', sz: 10, bold: true, color: { rgb: '1F2430' } },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        border: bdbox
+    };
+    const cs = h => ({ font: { name: '微软雅黑', sz: 10 }, border: bdbox, alignment: { horizontal: h, vertical: 'center' } });
+    const ws = XLSX.utils.aoa_to_sheet([]);
+    const setCell = (r, c, v, s) => {
+        const addr = XLSX.utils.encode_cell({ r, c });
+        ws[addr] = { t: 's', v: v == null ? '' : String(v), s };
+    };
+    const header = ['序号', '源阶段', '源工种', '源节点', '目标阶段', '目标工种', '目标节点', '连线标签'];
+    header.forEach((h, c) => setCell(0, c, h, hs));
+    const stepTx = st => (st && st.text) ? st.text.filter(x => !x.img).map(x => x.t).join('').replace(/[\r\n]+/g, ' ') : '';
+    const singleLink = st => {
+        const sg = (st && st.text) || [];
+        if (sg.length !== 1 || !sg[0].l) return null;
+        return sg[0].l || null;
+    };
+    let ri = 1;
+    doc.edges.forEach(e => {
+        const a = stepById(e.from), b = stepById(e.to);
+        if (!a || !b) return;
+        const pa = phaseById(a.phase), pb = phaseById(b.phase);
+        const ra = roleById(a.role), rb = roleById(b.role);
+        const cells = [
+            [1, String(ri), cs('center'), null],
+            [2, pa ? pa.name : '', cs('center'), null],
+            [3, ra ? ra.name : '', cs('center'), null],
+            [4, stepTx(a), cs('left'), singleLink(a)],
+            [5, pb ? pb.name : '', cs('center'), null],
+            [6, rb ? rb.name : '', cs('center'), null],
+            [7, stepTx(b), cs('left'), singleLink(b)],
+            [8, e.label || '', cs('center'), null],
+        ];
+        cells.forEach(([c, v, s, link]) => {
+            setCell(ri, c - 1, v, s);
+            if (link) ws[XLSX.utils.encode_cell({ r: ri, c: c - 1 })].l = { Target: link, Tooltip: link };
+        });
+        ri++;
+    });
+    ws['!cols'] = [{ wch: 6 }, { wch: 11 }, { wch: 9 }, { wch: 34 }, { wch: 11 }, { wch: 9 }, { wch: 34 }, { wch: 12 }];
+    ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: ri - 1, c: 7 } });
+    XLSX.utils.book_append_sheet(wb, ws, '步骤明细');
+}
+
+// 表头小按钮：改底色 / 删除 / 加子阶段
+canvas.addEventListener('click', e => {
+    const btn = e.target.closest('.hdr-tool');
+    if (btn) {
+        e.preventDefault();
+        if (btn.dataset.act === 'del') {
+            const rEl = btn.closest('[data-role]');
+            if (rEl) deleteRole(rEl.dataset.role);
+            const pEl = btn.closest('[data-phase]');
+            if (pEl) deletePhase(pEl.dataset.phase);
+            return;
+        }
+        if (btn.dataset.act === 'color') {
+            const rEl = btn.closest('[data-role]');
+            if (!rEl) return;
+            openPalette(rEl.dataset.role);
+            return;
+        }
+        if (btn.dataset.act === 'sub') {
+            const pEl = btn.closest('[data-phase]');
+            if (pEl) addSubPhase(pEl.dataset.phase);
+            return;
+        }
+        if (btn.dataset.act === 'delsub') {
+            const pEl = btn.closest('[data-phase]');
+            if (pEl) deleteLastSubPhase(pEl.dataset.phase);
+            return;
+        }
+        return;
+    }
+    // 点连线：选中（只切 .selected 类，不重建 SVG——重建会让两次点击命中不同节点，双击事件丢失）
+    const eh = e.target.closest('.edge-hit');
+    const lab = e.target.closest('.edge-label');
+    if (eh || lab) {
+        const gid = (eh || lab).closest('.edge').dataset.id;
+        selectedEdgeId = gid;
+        selectedStepId = null;
+        updateEdgeSelection();
+        return;
+    }
+    // 点空白：取消选中（.grow 网格体带 data-phase，需按表头容器判断）
+    if (!e.target.closest('.step') && !e.target.closest('.hdr-role') && !e.target.closest('.hdr-phase')) {
+        selectedStepId = null;
+        selectedEdgeId = null;
+        $$('.step').forEach(el => el.classList.toggle('selected', el.dataset.id === selectedStepId));
+        updateEdgeSelection();
+    }
+});
+/* 表头改色：Notion 色板单选（默认 + 9 色） */
+let paletteRoleId = null;
+function openPalette(roleId) {
+    paletteRoleId = roleId;
+    const r = roleById(roleId);
+    const cur = r.bg;
+    const mk = c => {
+        const sel = c.bg === cur;
+        return `<button class="swatch${sel ? ' sel' : ''}" data-bg="${c.bg}" type="button" title="${c.name}"><span class="sw-circ" style="background:${c.dot}"></span>${c.name}</button>`;
+    };
+    const defaults =
+        `<button class="swatch${cur === DEF_BG ? ' sel' : ''}" data-bg="" type="button" title="默认"><span class="sw-circ" style="background:${DEF_DOT}"></span>默认</button>`;
+    $('#swatches').innerHTML = defaults + NOTION_COLORS.map(mk).join('');
+    $('#colorModal').classList.add('show');
+}
+$('#swatches').addEventListener('click', e => {
+    const b = e.target.closest('.swatch');
+    if (!b || !paletteRoleId) return;
+    const r = roleById(paletteRoleId);
+    if (!r) return;
+    r.bg = b.dataset.bg || DEF_BG;
+    renderAll();
+    save();
+    $('#colorModal').classList.remove('show');
+    paletteRoleId = null;
+});
+$('#colorCancel').addEventListener('click', () => {
+    $('#colorModal').classList.remove('show');
+    paletteRoleId = null;
+});
+$('#colorModal').addEventListener('click', e => {
+    if (e.target === $('#colorModal')) {  // 点遮罩关闭
+        $('#colorModal').classList.remove('show');
+        paletteRoleId = null;
+    }
+});
+
+// 双击：步骤编辑 / 加步骤 / 连线标签
+canvas.addEventListener('dblclick', e => {
+    const eh = e.target.closest('.edge-hit');
+    const lab = e.target.closest('.edge-label');
+    if (eh || lab) {
+        e.preventDefault();
+        const gid = (eh || lab).closest('.edge').dataset.id;
+        openEdgeEditor(gid);
+        return;
+    }
+    const noteEl = e.target.closest('.note');
+    if (noteEl && !e.target.closest('a')) {   // 注意事项格双击进编辑器（链接处双击留给跳转）
+        e.preventDefault();
+        const parts = noteEl.dataset.note.split('|');
+        openEditor(null, { phase: parts[0], role: parts[1], sub: parts[2] || '' });
+        return;
+    }
+    const stepEl = e.target.closest('.step');
+    if (stepEl) { openEditor(stepEl.dataset.id); return; }
+    // 只拦截表头（.grow 网格体带 data-phase，不能按 data-phase 挡空白格）
+    if (e.target.closest('.hdr-role') || e.target.closest('.hdr-phase')) return;
+    const grow = e.target.closest('.grow');
+    if (!grow) return;
+    const rect = canvas.getBoundingClientRect();
+    const cell = cellOfPoint(e.clientX - rect.left, e.clientY - rect.top);
+    if (!cell) return;
+    const s = addStep(cell.phase, cell.role, cell.sub);
+    if (s) openEditor(s.id);
+});
+
+function exitConnectPreview() {
+    const p = $('#connectLayer path');
+    if (p) p.setAttribute('d', 'M0,0 L0,0');
+    $$('.step').forEach(el => el.classList.remove('conn-target'));
+}
+function exitConnect() {
+    connect = null;
+    document.body.classList.remove('connect-mode');
+    $$('.step').forEach(el => el.classList.remove('connecting'));
+    $('#connectGuide').classList.remove('show');
+    exitConnectPreview();
+}
+function createEdge(from, to, fromDir, toDir) {
+    if (from === to || doc.edges.some(x => x.from === from && x.to === to)) return;
+    doc.edges.push({ id: uid('edge'), from, to, label: '', fromDir, toDir });
+    selectedEdgeId = null;
+    renderAll(); save();
+}
+
+/* 连线（两种方式）：①点源节点的口→再点目标节点的口（精确对口）；②按住口拖向目标松开（通道自动对口） */
+canvas.addEventListener('pointerdown', e => {
+    const pt = e.target.closest('.pt');
+    const stepEl = e.target.closest('.step');
+    if (connect) {   // 已在"选目标口"模式：第二击决定目标节点与该侧入口
+        e.preventDefault();
+        const src = connect;
+        const stepId = stepEl ? stepEl.dataset.id : null;
+        if (stepId && stepId !== src.fromId) {
+            const r = stepRect(stepById(stepId));
+            createEdge(src.fromId, stepId, src.dir, pt ? pt.dataset.dir : portDirNear(cavPoint(e), r));
+        }
+        exitConnect();
+        return;
+    }
+    if (pt) {
+        e.preventDefault();
+        connect = { fromId: pt.closest('.step').dataset.id, dir: pt.dataset.dir, moved: false, startX: e.clientX, startY: e.clientY };
+        document.body.classList.add('connect-mode');
+        pt.closest('.step').classList.add('connecting');
+        $('#connectGuide').classList.add('show');
+        return;
+    }
+    const noteEl = e.target.closest('.note');
+    if (noteEl && !e.target.closest('a')) {   // 说明格→另一说明格移动；链接处留给点击/复制
+        noteDrag = { el: noteEl, fromKey: noteEl.dataset.note, moved: false, startX: e.clientX, startY: e.clientY, toKey: null };
+        return;
+    }
+    if (!stepEl) return;
+    if (e.target.closest('a')) return;
+    const s = stepById(stepEl.dataset.id);
+    selectedStepId = s.id;
+    selectedEdgeId = null;
+    updateEdgeSelection();
+    $$('.step').forEach(el => el.classList.toggle('selected', el.dataset.id === selectedStepId));
+    drag = { id: s.id, moved: false, startX: e.clientX, startY: e.clientY, origPhase: s.phase, origRole: s.role, origSub: s.sub };
+    stepEl.classList.add('dragging');
+    stepEl.setPointerCapture(e.pointerId);
+});
+document.addEventListener('pointermove', e => {
+    if (connect) {
+        if (!connect.moved && (Math.abs(e.clientX - connect.startX) + Math.abs(e.clientY - connect.startY) > 4)) connect.moved = true;
+        const s = stepById(connect.fromId);
+        const r = stepRect(s);
+        const sp = portPoint(r, connect.dir);
+        const cv = cavPoint(e);
+        const els = document.elementsFromPoint(e.clientX, e.clientY);
+        const ht = els.find(el => el.classList && el.classList.contains('step') && el.dataset.id !== connect.fromId);
+        let end = cv;
+        if (ht) {
+            const hr = stepRect(stepById(ht.dataset.id));
+            end = portPoint(hr, portDirNear(cv, hr));
+        }
+        const path = $('#connectLayer path');
+        path.setAttribute('d', 'M' + sp[0] + ',' + sp[1] + ' L' + end[0] + ',' + sp[1] + ' L' + end[0] + ',' + end[1]);
+        $$('.step').forEach(el => el.classList.toggle('conn-target', !!ht && el.dataset.id === ht.dataset.id));
+        return;
+    }
+    if (noteDrag) {
+        const n = noteDrag;
+        if (!n.moved && (Math.abs(e.clientX - n.startX) + Math.abs(e.clientY - n.startY) > 4)) {
+            n.moved = true;
+            const sel = document.getSelection();
+            if (sel && sel.removeAllRanges) sel.removeAllRanges();   // 拖格即移动，不留下格内文字选中残留
+        }
+        if (n.moved) {
+            // 拖动中：给源格半透明，并在下方实时定位目标说明格（排除源格）
+            $$('.note').forEach(el => el.classList.toggle('dragging-note', el === n.el));
+            const cv = cavPoint(e);
+            const cell = cellOfPoint(cv.x, cv.y);
+            let toKey = null;
+            if (cell) {
+                const r = roleById(cell.role);
+                if (r && r.note) {
+                    const k = cell.phase + '|' + r.id + '|' + (cell.sub || '');
+                    if (k !== n.fromKey) toKey = k;
+                }
+            }
+            $$('.note').forEach(el => el.classList.toggle('drop-target', !!toKey && el.dataset.note === toKey));
+            n.toKey = toKey;
+            document.body.classList.add('note-dragging');
+        }
+        return;
+    }
+    if (!drag) return;
+    const dx = Math.abs(e.clientX - drag.startX), dy = Math.abs(e.clientY - drag.startY);
+    if (dx + dy > 4) drag.moved = true;
+    const el = document.querySelector('.step[data-id="' + drag.id + '"]');
+    if (!el) return;
+    const cv = cavPoint(e);
+    const cell = cellOfPoint(cv.x, cv.y);
+    const s = stepById(drag.id);
+    if (cell && !roleById(cell.role).note) {   // 备注列不接收拖入的步骤
+        const st = { phase: cell.phase, role: cell.role, sub: cell.sub, row: nextRowIn(cell.phase, cell.role, cell.sub, s.id), text: s.text };
+        el.dataset.pvPhase = cell.phase;
+        el.dataset.pvRole = cell.role;
+        el.dataset.pvSub = cell.sub || '';
+        positionStepEl(el, st);
+    } else {
+        delete el.dataset.pvPhase; delete el.dataset.pvRole; delete el.dataset.pvSub;
+        positionStepEl(el, s);
+    }
+});
+document.addEventListener('pointerup', e => {
+    if (connect) {
+        const c = connect;
+        exitConnectPreview();
+        if (c.moved) {   // 按住口拖到目标松开 = 立即成线
+            exitConnect();
+            const els = document.elementsFromPoint(e.clientX, e.clientY);
+            const ht = els.find(el => el.classList && el.classList.contains('step') && el.dataset.id !== c.fromId);
+            if (ht) createEdge(c.fromId, ht.dataset.id, c.dir, portDirNear(cavPoint(e), stepRect(stepById(ht.dataset.id))));
+        }
+        // 单击未拖动：仅点亮了源口，保持待选状态，等第二次点击完成连线
+        return;
+    }
+    if (noteDrag) {
+        const n = noteDrag;
+        noteDrag = null;
+        document.body.classList.remove('note-dragging');
+        $$('.note').forEach(el => el.classList.remove('dragging-note', 'drop-target'));
+        if (!n.moved || !n.toKey) return;
+        const f = n.fromKey.split('|'), t = n.toKey.split('|');
+        const seg = noteSegFor(f[0], f[1], f[2] || '');
+        if (!seg.length) return;   // 源为空无可搬
+        if (noteSegFor(t[0], t[1], t[2] || '').length && !confirm('目标格已有说明内容，移动将覆盖。继续？')) return;
+        doc.notes = (doc.notes || []).filter(x => !(x.phase === f[0] && x.role === f[1] && (x.sub || '') === (f[2] || '')));
+        updateNoteSeg(t[0], t[1], t[2] || '', seg);
+        renderAll(); save();
+        return;
+    }
+    if (!drag) return;
+    const d = drag;
+    drag = null;
+    const el = document.querySelector('.step[data-id="' + d.id + '"]');
+    const s = stepById(d.id);
+    if (!el || !s) return;
+    el.classList.remove('dragging');
+    el.style.opacity = '';
+    const newPhase = el.dataset.pvPhase, newRole = el.dataset.pvRole, newSub = el.dataset.pvSub;
+    delete el.dataset.pvPhase; delete el.dataset.pvRole; delete el.dataset.pvSub;
+    if (!d.moved) return;
+    if (newPhase && newRole) {
+        s.phase = newPhase; s.role = newRole;
+        const P = po[phaseIndex(newPhase)];
+        s.sub = P.subs.length
+            ? ((newSub && P.subs.some(q => q.id === newSub)) ? newSub : P.subs[0].id)
+            : undefined;
+        s.row = nextRowIn(newPhase, newRole, s.sub, s.id);
+        renderAll(); save();
+    } else {
+        positionStepEl(el, s);
+    }
+});
+function cavPoint(e) {
+    const r = canvas.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+function portPoint(rect, dir) {
+    if (dir === 't') return [rect.cx, rect.top];
+    if (dir === 'b') return [rect.cx, rect.bottom];
+    if (dir === 'l') return [rect.left, rect.cy];
+    return [rect.right, rect.cy];
+}
+function oppositeDir(d) { return d === 't' ? 'b' : d === 'b' ? 't' : d === 'l' ? 'r' : 'l'; }
+// 目标步骤接入口：按落点相对步骤中心的方位取占优轴（横/竖向归一化比较），不硬绑成源口的对侧
+function portDirNear(pt, rect) {
+    const dx = pt.x - rect.cx, dy = pt.y - rect.cy;
+    const rx = dx / Math.max(rect.w / 2, 1), ry = dy / Math.max(rect.h / 2, 1);
+    if (Math.abs(ry) >= Math.abs(rx)) return ry >= 0 ? 'b' : 't';
+    return rx >= 0 ? 'r' : 'l';
+}
+
+// 表头 contenteditable 提交（工种名 / 阶段名）——focusout（blur 不冒泡）
+canvas.addEventListener('focusout', e => {
+    const t = e.target;
+    if (!t.classList) return;
+    if (t.classList.contains('role-name')) {
+        t.removeAttribute('contenteditable');
+        const el = t.closest('[data-role]');
+        if (el) commitRoleName(el.dataset.role, t.textContent);
+    } else if (t.classList.contains('phase-name')) {
+        t.removeAttribute('contenteditable');
+        const el = t.closest('[data-phase]');
+        if (el) commitPhaseName(el.dataset.phase, t.textContent);
+    }
+});
+canvas.addEventListener('keydown', e => {
+    if ((e.key === 'Enter' || e.key === 'Escape') &&
+        e.target.classList && (e.target.classList.contains('role-name') || e.target.classList.contains('phase-name'))) {
+        e.preventDefault();
+        e.target.blur();
+    }
+    if (e.key === 'Escape' && connect) { e.preventDefault(); exitConnect(); }
+    if (e.key === 'Escape' && noteDrag) {
+        e.preventDefault();
+        noteDrag = null;
+        document.body.classList.remove('note-dragging');
+        $$('.note').forEach(el => el.classList.remove('dragging-note', 'drop-target'));
+    }
+}, true);
+// 指针被系统取消（如拖出窗口/触控中断）时同样复位说明格拖动
+document.addEventListener('pointercancel', () => {
+    if (noteDrag) {
+        noteDrag = null;
+        document.body.classList.remove('note-dragging');
+        $$('.note').forEach(el => el.classList.remove('dragging-note', 'drop-target'));
+    }
+});
+
+// Delete/Backspace：删选中连线或步骤
+canvas.addEventListener('keydown', e => {
+    if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.target.isContentEditable) return;
+    e.preventDefault();
+    if (selectedEdgeId) deleteEdge(selectedEdgeId);
+    else if (selectedStepId) deleteStep(selectedStepId);
+});
+
+// 撤销/重做快捷键：Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z（输入框与富文本编辑区内走原生编辑撤销，不拦截）
+document.addEventListener('keydown', e => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    if (e.altKey) return;
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    const k = e.key.toLowerCase();
+    if (k === 'z' && !e.shiftKey) { e.preventDefault(); $('#canvas').focus(); undo(); }
+    else if (k === 'z' && e.shiftKey) { e.preventDefault(); $('#canvas').focus(); redo(); }
+    else if (k === 'y') { e.preventDefault(); $('#canvas').focus(); redo(); }
+});
+
+// 点画布空白/节点时聚焦画布，便于键盘删除；正在编辑表头时不抢焦点
+canvas.addEventListener('click', e => {
+    if (e.target.closest('.role-name, .phase-name, .hdr-tool, a, input, .rt-editor')) return;
+    if (document.activeElement !== canvas) canvas.focus();
+});
+
+/* ══════════════════════ 启动 ══════════════════════ */
+load();
+renderAll();
+</script>
+</body>
+</html>

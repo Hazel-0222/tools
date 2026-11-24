@@ -21,6 +21,9 @@
 ### Mind
 - [mindmap](mindmap/) — 思维导图：Markdown 与脑图双向同步，支持拖拽调整、导出图片
 
+### Diagram
+- [swimlane](swimlane/) — 泳道图：工种×阶段矩阵，端口连线可对标点选，导出 PNG/PDF/Excel/JSON
+
 ## 使用方式
 
 直接浏览器打开对应目录下的 `index.html`，或通过 GitHub Pages 访问：
