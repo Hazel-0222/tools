@@ -1911,7 +1911,7 @@ $('#rtInput').addEventListener('paste', e => {
 $('#urlModal').addEventListener('click', e => { if (e.target === $('#urlModal')) closeUrl(); });
 $('#rtOk').addEventListener('click', () => closeEditor(true));
 $('#rtCancel').addEventListener('click', () => closeEditor(false));
-$('#rtModal').addEventListener('click', e => { if (e.target === $('#rtModal')) closeEditor(false); });
+// 点击编辑弹窗外侧空白处不关闭编辑窗口：内容未保存时不误丢输入，需点「确定/取消」才结束
 
 /* ══════════════════════ 连线标签弹窗 ══════════════════════ */
 function openEdgeEditor(id) {
